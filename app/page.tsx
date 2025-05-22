@@ -23,12 +23,13 @@ type Message = {
 export default function Home() {
 	const [input, setInput] = useState("");
 	const [isSharing, setIsSharing] = useState(false);
+	const [isPaused, setIsPaused] = useState(true);
 	const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const player = usePlayer();
 
 	const vad = useMicVAD({
-		startOnLoad: true,
+		startOnLoad: false,
 		onSpeechEnd: (audio) => {
 			player.stop();
 			const wav = utils.encodeWAV(audio);
@@ -50,6 +51,25 @@ export default function Home() {
 		window.addEventListener("keydown", keyDown);
 		return () => window.removeEventListener("keydown", keyDown);
 	});
+
+	// Handle pausing and resuming conversation
+	useEffect(() => {
+		if (isPaused) {
+			vad.pause();
+			player.stop();
+			if (!vad.loading && !vad.errored) {
+				toast.info("Conversation paused");
+			}
+		} else if (!vad.listening && !vad.loading && !vad.errored) {
+			vad.start();
+			toast.success("Conversation started");
+		}
+	}, [isPaused, vad, player]);
+
+	function togglePause() {
+		setIsPaused(!isPaused);
+		track(isPaused ? "Start conversation" : "Pause conversation");
+	}
 
 	// Function to capture screenshot from screen sharing stream
 	async function captureScreenshot(): Promise<string | null> {
@@ -188,10 +208,15 @@ export default function Home() {
 		}
 
 		const latency = Date.now() - submittedAt;
-		player.play(response.body, () => {
-			const isFirefox = navigator.userAgent.includes("Firefox");
-			if (isFirefox) vad.start();
-		});
+		
+		// Only play audio if conversation is not paused
+		if (!isPaused) {
+			player.play(response.body, () => {
+				const isFirefox = navigator.userAgent.includes("Firefox");
+				if (isFirefox) vad.start();
+			});
+		}
+		
 		setInput(transcript);
 
 		return [
@@ -210,6 +235,10 @@ export default function Home() {
 
 	function handleFormSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		if (isPaused) {
+			// Auto-start conversation when user submits text while paused
+			setIsPaused(false);
+		}
 		startTransition(() => submit(input));
 	}
 
@@ -230,6 +259,19 @@ export default function Home() {
 				>
 					<ScreenShareIcon />
 					{isSharing ? "Stop Sharing" : "Share Screen"}
+				</button>
+				
+				<button
+					type="button"
+					onClick={togglePause}
+					className={clsx(
+						"flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
+						isPaused
+							? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-800/50"
+							: "bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+					)}
+				>
+					{isPaused ? "Start Conversation" : "Pause Conversation"}
 				</button>
 			</div>
 
@@ -271,21 +313,16 @@ export default function Home() {
 				{messages.length === 0 && (
 					<>
 						<p>
-							A fast, open-source voice assistant powered by{" "}
-							<A href="https://groq.com">Groq</A>,{" "}
-							<A href="https://cartesia.ai">Cartesia</A>,{" "}
-							<A href="https://www.vad.ricky0123.com/">VAD</A>, and{" "}
-							<A href="https://vercel.com">Vercel</A>.{" "}
-							<A href="https://github.com/ai-ng/swift" target="_blank">
-								Learn more
-							</A>
-							.
+							Made by{" "}
+							<A href="https://x.com/josefbuettgen">Josef Büttgen</A>.
 						</p>
 
 						{vad.loading ? (
 							<p>Loading speech detection...</p>
 						) : vad.errored ? (
 							<p>Failed to load speech detection.</p>
+						) : isPaused ? (
+							<p>Click "Start Conversation" to begin.</p>
 						) : (
 							<p>Start talking to chat.</p>
 						)}
@@ -297,9 +334,9 @@ export default function Home() {
 				className={clsx(
 					"absolute size-36 blur-3xl rounded-full bg-linear-to-b from-red-200 to-red-400 dark:from-red-600 dark:to-red-800 -z-50 transition ease-in-out",
 					{
-						"opacity-0": vad.loading || vad.errored,
-						"opacity-30": !vad.loading && !vad.errored && !vad.userSpeaking,
-						"opacity-100 scale-110": vad.userSpeaking,
+						"opacity-0": vad.loading || vad.errored || isPaused,
+						"opacity-30": !vad.loading && !vad.errored && !vad.userSpeaking && !isPaused,
+						"opacity-100 scale-110": vad.userSpeaking && !isPaused,
 					}
 				)}
 			/>
