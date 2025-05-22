@@ -39,7 +39,8 @@ export async function POST(request: Request) {
 	const messages: any[] = [
 		{
 			role: "system",
-			content: `- You are Swift, a friendly and helpful voice assistant and the user may be sharing their desktop screen with you.
+			content: `${data.screenshot ? "- You are Swift, a friendly and helpful voice assistant and the user is sharing their desktop screen with you. Do not start your response by describing the screen, just respond to the user's request." :
+				"- You are Swift, a friendly and helpful voice assistant and you can help the user, if they share their screen with you. They are not sharing their screen with you right now, so tell them to share their screen with you to get started."}
 		- Respond briefly to the user's request, and do not provide unnecessary information.
 		- Keep answers minimal and ask maximum 1x question per response.
 		- Use a conversational and friendly tone.
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
 		},
 		...data.message,
 	];
-	
+
 	// Add the user's message with any screenshot if available
 	const userMessage: any = {
 		role: "user",
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
 			},
 		],
 	};
-	
+
 	// Add screenshot to the message content if it exists
 	if (data.screenshot) {
 		userMessage.content.push({
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
 			}
 		});
 	}
-	
+
 	messages.push(userMessage);
 
 	const completion = await groq.chat.completions.create({
@@ -160,7 +161,7 @@ async function getTranscript(input: string | File) {
 	try {
 		// Create a File object from the Blob which is compatible with Groq's API
 		const file = new File([input], "audio.wav", { type: "audio/wav" });
-		
+
 		const { text } = await groq.audio.transcriptions.create({
 			file: file,
 			model: "whisper-large-v3",
@@ -174,7 +175,7 @@ async function getTranscript(input: string | File) {
 				return null; // Empty audio file
 			}
 		};
-		
+
 		return errorHandler.handleError(error);
 	}
 }
