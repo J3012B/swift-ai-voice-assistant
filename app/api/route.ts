@@ -179,13 +179,23 @@ async function getTranscript(input: string | Blob) {
 	if (typeof input === "string") return input;
 
 	try {
+		// Create a File object from the Blob which is compatible with Groq's API
+		const file = new File([input], "audio.wav", { type: "audio/wav" });
+		
 		const { text } = await groq.audio.transcriptions.create({
-			file: input,
+			file: file,
 			model: "whisper-large-v3",
 		});
 
 		return text.trim() || null;
-	} catch {
-		return null; // Empty audio file
+	} catch (error) {
+		const errorHandler = {
+			handleError: (err: any) => {
+				console.error("Transcription error:", err);
+				return null; // Empty audio file
+			}
+		};
+		
+		return errorHandler.handleError(error);
 	}
 }

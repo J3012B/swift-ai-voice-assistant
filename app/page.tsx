@@ -9,7 +9,7 @@ import {
 	startTransition,
 } from "react";
 import { toast } from "sonner";
-import { EnterIcon, LoadingIcon } from "@/lib/icons";
+import { EnterIcon, LoadingIcon, ScreenShareIcon } from "@/lib/icons";
 import { usePlayer } from "@/lib/usePlayer";
 import { track } from "@vercel/analytics";
 import { useMicVAD, utils } from "@ricky0123/vad-react";
@@ -22,6 +22,7 @@ type Message = {
 
 export default function Home() {
 	const [input, setInput] = useState("");
+	const [isSharing, setIsSharing] = useState(false);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const player = usePlayer();
 
@@ -48,6 +49,60 @@ export default function Home() {
 		window.addEventListener("keydown", keyDown);
 		return () => window.removeEventListener("keydown", keyDown);
 	});
+
+	async function startScreenShare() {
+		try {
+			const mediaStream = await navigator.mediaDevices.getDisplayMedia({
+				video: true,
+				audio: true,
+			});
+			
+			setIsSharing(true);
+			
+			// Handle when user stops sharing
+			mediaStream.getTracks().forEach(track => {
+				track.onended = () => {
+					setIsSharing(false);
+					toast.info("Screen sharing stopped");
+				};
+			});
+			
+			toast.success("Screen sharing started");
+			track("Screen sharing");
+		} catch (error) {
+			const errorHandler = {
+				handleError: (err: any) => {
+					console.error("Screen sharing error:", err);
+					toast.error("Failed to start screen sharing");
+					setIsSharing(false);
+				}
+			};
+			
+			errorHandler.handleError(error);
+		}
+	}
+
+	function stopScreenShare() {
+		if (isSharing) {
+			// This will trigger the onended event handlers above
+			window.navigator.mediaDevices.getUserMedia({ audio: true })
+				.then(stream => {
+					stream.getTracks().forEach(track => track.stop());
+					setIsSharing(false);
+					toast.info("Screen sharing stopped");
+				})
+				.catch(error => {
+					const errorHandler = {
+						handleError: (err: any) => {
+							console.error("Error stopping screen share:", err);
+							setIsSharing(false);
+						}
+					};
+					
+					errorHandler.handleError(error);
+				});
+		}
+	}
 
 	const [messages, submit, isPending] = useActionState<
 		Array<Message>,
@@ -118,6 +173,22 @@ export default function Home() {
 	return (
 		<>
 			<div className="pb-4 min-h-28" />
+
+			<div className="flex items-center justify-center gap-2 w-full max-w-3xl mb-4">
+				<button
+					type="button"
+					onClick={isSharing ? stopScreenShare : startScreenShare}
+					className={clsx(
+						"flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
+						isSharing
+							? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-800/50"
+							: "bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+					)}
+				>
+					<ScreenShareIcon />
+					{isSharing ? "Stop Sharing" : "Share Screen"}
+				</button>
+			</div>
 
 			<form
 				className="rounded-full bg-neutral-200/80 dark:bg-neutral-800/80 flex items-center w-full max-w-3xl border border-transparent hover:border-neutral-300 focus-within:border-neutral-400 hover:focus-within:border-neutral-400 dark:hover:border-neutral-700 dark:focus-within:border-neutral-600 dark:hover:focus-within:border-neutral-600"
