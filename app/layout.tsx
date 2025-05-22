@@ -6,9 +6,20 @@ import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/react";
 
 export const metadata: Metadata = {
-	title: "Swift",
+	title: "Talk To Your Computer",
 	description:
-		"A fast, open-source voice assistant powered by Groq, Cartesia, and Vercel.",
+		"An easy way to share your screen with AI and ask it questions.",
+	openGraph: {
+		title: "Talk To Your Computer",
+		description:
+			"An easy way to share your screen with AI and ask it questions.",
+	},
+	twitter: {
+		card: "summary_large_image",
+		title: "Talk To Your Computer",
+		description:
+			"An easy way to share your screen with AI and ask it questions.",
+	},
 };
 
 const geist = Geist({

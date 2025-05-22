@@ -332,7 +332,7 @@ export default function Home() {
 
 			<div
 				className={clsx(
-					'absolute size-36 blur-3xl rounded-full bg-linear-to-b from-red-200 to-red-400 dark:from-red-600 dark:to-red-800 -z-50 transition ease-in-out',
+					'absolute size-36 blur-3xl rounded-full bg-linear-to-b from-red-200 to-red-400 dark:from-red-600 dark:to-red-800 -z-50 transition ease-in-out left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
 					{
 						'opacity-0': vad.loading || vad.errored || isPaused,
 						'opacity-30': !vad.loading && !vad.errored && !vad.userSpeaking && !isPaused,
