@@ -7,7 +7,7 @@ import { after } from "next/server";
 const groq = new Groq();
 
 const schema = zfd.formData({
-	input: z.union([zfd.text(), z.instanceof(Blob)]),
+	input: z.union([zfd.text(), zfd.file()]),
 	message: zfd.repeatableOfType(
 		zfd.json(
 			z.object({
@@ -16,6 +16,7 @@ const schema = zfd.formData({
 			})
 		)
 	),
+	screenshot: zfd.text().optional(),
 });
 
 export async function POST(request: Request) {
@@ -34,73 +35,51 @@ export async function POST(request: Request) {
 		"text completion " + request.headers.get("x-vercel-id") || "local"
 	);
 
-	const completion = await groq.chat.completions.create({
-		model: "meta-llama/llama-4-scout-17b-16e-instruct",
-		messages: [
+	// Prepare the messages array with system and history
+	const messages: any[] = [
+		{
+			role: "system",
+			content: `- You are Swift, a friendly and helpful voice assistant and the user may be sharing their desktop screen with you.
+		- Respond briefly to the user's request, and do not provide unnecessary information.
+		- Keep answers minimal and ask maximum 1x question per response.
+		- Use a conversational and friendly tone.
+		- If you don't understand the user's request, ask for clarification.
+		- You do not have access to up-to-date information, so you should not provide real-time data.
+		- You are not capable of performing actions other than responding to the user.
+		- Do not use markdown, emojis, or other formatting in your responses. Respond in a way easily spoken by text-to-speech software.
+		- User location is ${await location()}.
+		- The current time is ${await time()}.`,
+		},
+		...data.message,
+	];
+	
+	// Add the user's message with any screenshot if available
+	const userMessage: any = {
+		role: "user",
+		content: [
 			{
-				role: "system",
-				content: `- You are Swift, a friendly and helpful voice assistant and the user is sharing their desktop screen with you.
-			- Respond briefly to the user's request, and do not provide unnecessary information.
-			- If you don't understand the user's request, ask for clarification.
-			- You do not have access to up-to-date information, so you should not provide real-time data.
-			- You are not capable of performing actions other than responding to the user.
-			- Do not use markdown, emojis, or other formatting in your responses. Respond in a way easily spoken by text-to-speech software.
-			- User location is ${await location()}.
-			- The current time is ${await time()}.`,
-			},
-			...data.message,
-			{
-				role: "user",
-				content: [
-					{
-						type: "text",
-						text: transcript,
-					},
-					{
-						"type": "image_url",
-						"image_url": {
-							"url": "https://upload.wikimedia.org/wikipedia/commons/f/f2/LPU-v1-die.jpg"
-						}
-					}
-				],
+				type: "text",
+				text: transcript,
 			},
 		],
+	};
+	
+	// Add screenshot to the message content if it exists
+	if (data.screenshot) {
+		userMessage.content.push({
+			type: "image_url",
+			image_url: {
+				url: data.screenshot
+			}
+		});
+	}
+	
+	messages.push(userMessage);
+
+	const completion = await groq.chat.completions.create({
+		model: "meta-llama/llama-4-scout-17b-16e-instruct",
+		messages: messages as any,
 	});
-
-	// import { Groq } from 'groq-sdk';
-
-	// const groq = new Groq();
-	// async function main() {
-	//   const chatCompletion = await groq.chat.completions.create({
-	//     "messages": [
-	//       {
-	//         "role": "user",
-	//         "content": [
-	//           {
-	//             "type": "text",
-	//             "text": "What's in this image?"
-	//           },
-	//           {
-	//             "type": "image_url",
-	//             "image_url": {
-	//               "url": "https://upload.wikimedia.org/wikipedia/commons/f/f2/LPU-v1-die.jpg"
-	//             }
-	//           }
-	//         ]
-	//       }
-	//     ],
-	//     "model": "meta-llama/llama-4-scout-17b-16e-instruct",
-	//     "temperature": 1,
-	//     "max_completion_tokens": 1024,
-	//     "top_p": 1,
-	//     "stream": false,
-	//     "stop": null
-	//   });
-
-	//    console.log(chatCompletion.choices[0].message.content);
-	// }
-
-	// main();
 
 	const response = completion.choices[0].message.content;
 	console.timeEnd(
@@ -175,7 +154,7 @@ async function time() {
 	return new Date().toLocaleString("en-US", { timeZone });
 }
 
-async function getTranscript(input: string | Blob) {
+async function getTranscript(input: string | File) {
 	if (typeof input === "string") return input;
 
 	try {

@@ -23,6 +23,7 @@ type Message = {
 export default function Home() {
 	const [input, setInput] = useState("");
 	const [isSharing, setIsSharing] = useState(false);
+	const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const player = usePlayer();
 
@@ -50,6 +51,50 @@ export default function Home() {
 		return () => window.removeEventListener("keydown", keyDown);
 	});
 
+	// Function to capture screenshot from screen sharing stream
+	async function captureScreenshot(): Promise<string | null> {
+		if (!isSharing || !screenStream) return null;
+		
+		try {
+			// Create a video element to capture the stream
+			const video = document.createElement('video');
+			video.srcObject = screenStream;
+			video.autoplay = true;
+			
+			// Wait for video to be ready
+			await new Promise(resolve => {
+				video.onloadedmetadata = resolve;
+				// If already loaded, resolve immediately
+				if (video.readyState >= 2) resolve(null);
+			});
+			
+			// Create a canvas to draw the video frame
+			const canvas = document.createElement('canvas');
+			canvas.width = video.videoWidth;
+			canvas.height = video.videoHeight;
+			
+			// Draw the current video frame to the canvas
+			const ctx = canvas.getContext('2d');
+			if (!ctx) return null;
+			
+			ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+			
+			// Convert canvas to data URL (base64 image)
+			const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+			
+			return dataUrl;
+		} catch (error) {
+			const errorHandler = {
+				handleError: (err: any) => {
+					console.error("Screenshot capture error:", err);
+					return null;
+				}
+			};
+			
+			return errorHandler.handleError(error);
+		}
+	}
+
 	async function startScreenShare() {
 		try {
 			const mediaStream = await navigator.mediaDevices.getDisplayMedia({
@@ -58,11 +103,13 @@ export default function Home() {
 			});
 			
 			setIsSharing(true);
+			setScreenStream(mediaStream);
 			
 			// Handle when user stops sharing
 			mediaStream.getTracks().forEach(track => {
 				track.onended = () => {
 					setIsSharing(false);
+					setScreenStream(null);
 					toast.info("Screen sharing stopped");
 				};
 			});
@@ -75,6 +122,7 @@ export default function Home() {
 					console.error("Screen sharing error:", err);
 					toast.error("Failed to start screen sharing");
 					setIsSharing(false);
+					setScreenStream(null);
 				}
 			};
 			
@@ -83,24 +131,12 @@ export default function Home() {
 	}
 
 	function stopScreenShare() {
-		if (isSharing) {
-			// This will trigger the onended event handlers above
-			window.navigator.mediaDevices.getUserMedia({ audio: true })
-				.then(stream => {
-					stream.getTracks().forEach(track => track.stop());
-					setIsSharing(false);
-					toast.info("Screen sharing stopped");
-				})
-				.catch(error => {
-					const errorHandler = {
-						handleError: (err: any) => {
-							console.error("Error stopping screen share:", err);
-							setIsSharing(false);
-						}
-					};
-					
-					errorHandler.handleError(error);
-				});
+		if (isSharing && screenStream) {
+			// Stop all tracks in the stream
+			screenStream.getTracks().forEach(track => track.stop());
+			setIsSharing(false);
+			setScreenStream(null);
+			toast.info("Screen sharing stopped");
 		}
 	}
 
@@ -116,6 +152,13 @@ export default function Home() {
 		} else {
 			formData.append("input", data, "audio.wav");
 			track("Speech input");
+		}
+
+		// Capture screenshot if screen sharing is active
+		const screenshot = await captureScreenshot();
+		if (screenshot) {
+			formData.append("screenshot", screenshot);
+			track("Screenshot captured");
 		}
 
 		for (const message of prevMessages) {
