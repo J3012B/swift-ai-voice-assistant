@@ -243,7 +243,7 @@ export default function Home() {
 	}
 
 	return (
-		<>
+		<div>
 			<div className='pb-4 min-h-28' />
 
 			<div className='flex items-center justify-center gap-2 w-full max-w-3xl mb-4'>
@@ -311,7 +311,7 @@ export default function Home() {
 				)}
 
 				{messages.length === 0 && (
-					<>
+					<div>
 						<p>
 							Made by{' '}
 							<A href='https://x.com/josefbuettgen'>Josef Büttgen</A>.
@@ -322,11 +322,11 @@ export default function Home() {
 						) : vad.errored ? (
 							<p>Failed to load speech detection.</p>
 						) : isPaused ? (
-							<p>Click 'Start Conversation' to begin.</p>
+							<p>Click &apos;Start Conversation&apos; to begin.</p>
 						) : (
 							<p>Start talking to chat.</p>
 						)}
-					</>
+					</div>
 				)}
 			</div>
 
@@ -340,7 +340,7 @@ export default function Home() {
 					}
 				)}
 			/>
-		</>
+		</div>
 	);
 }
 
