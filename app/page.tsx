@@ -1,27 +1,27 @@
-"use client";
+'use client';
 
-import clsx from "clsx";
+import clsx from 'clsx';
 import {
 	useActionState,
 	useEffect,
 	useRef,
 	useState,
 	startTransition,
-} from "react";
-import { toast } from "sonner";
-import { EnterIcon, LoadingIcon, ScreenShareIcon } from "@/lib/icons";
-import { usePlayer } from "@/lib/usePlayer";
-import { track } from "@vercel/analytics";
-import { useMicVAD, utils } from "@ricky0123/vad-react";
+} from 'react';
+import { toast } from 'sonner';
+import { EnterIcon, LoadingIcon, ScreenShareIcon } from '@/lib/icons';
+import { usePlayer } from '@/lib/usePlayer';
+import { track } from '@vercel/analytics';
+import { useMicVAD, utils } from '@ricky0123/vad-react';
 
 type Message = {
-	role: "user" | "assistant";
+	role: 'user' | 'assistant';
 	content: string;
 	latency?: number;
 };
 
 export default function Home() {
-	const [input, setInput] = useState("");
+	const [input, setInput] = useState('');
 	const [isSharing, setIsSharing] = useState(false);
 	const [isPaused, setIsPaused] = useState(true);
 	const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
@@ -33,9 +33,9 @@ export default function Home() {
 		onSpeechEnd: (audio) => {
 			player.stop();
 			const wav = utils.encodeWAV(audio);
-			const blob = new Blob([wav], { type: "audio/wav" });
+			const blob = new Blob([wav], { type: 'audio/wav' });
 			startTransition(() => submit(blob));
-			const isFirefox = navigator.userAgent.includes("Firefox");
+			const isFirefox = navigator.userAgent.includes('Firefox');
 			if (isFirefox) vad.pause();
 		},
 		positiveSpeechThreshold: 0.6,
@@ -44,12 +44,12 @@ export default function Home() {
 
 	useEffect(() => {
 		function keyDown(e: KeyboardEvent) {
-			if (e.key === "Enter") return inputRef.current?.focus();
-			if (e.key === "Escape") return setInput("");
+			if (e.key === 'Enter') return inputRef.current?.focus();
+			if (e.key === 'Escape') return setInput('');
 		}
 
-		window.addEventListener("keydown", keyDown);
-		return () => window.removeEventListener("keydown", keyDown);
+		window.addEventListener('keydown', keyDown);
+		return () => window.removeEventListener('keydown', keyDown);
 	});
 
 	// Handle pausing and resuming conversation
@@ -58,17 +58,17 @@ export default function Home() {
 			vad.pause();
 			player.stop();
 			if (!vad.loading && !vad.errored) {
-				toast.info("Conversation paused");
+				toast.info('Conversation paused');
 			}
 		} else if (!vad.listening && !vad.loading && !vad.errored) {
 			vad.start();
-			toast.success("Conversation started");
+			toast.success('Conversation started');
 		}
 	}, [isPaused, vad, player]);
 
 	function togglePause() {
 		setIsPaused(!isPaused);
-		track(isPaused ? "Start conversation" : "Pause conversation");
+		track(isPaused ? 'Start conversation' : 'Pause conversation');
 	}
 
 	// Function to capture screenshot from screen sharing stream
@@ -106,7 +106,7 @@ export default function Home() {
 		} catch (error) {
 			const errorHandler = {
 				handleError: (err: any) => {
-					console.error("Screenshot capture error:", err);
+					console.error('Screenshot capture error:', err);
 					return null;
 				}
 			};
@@ -130,17 +130,17 @@ export default function Home() {
 				track.onended = () => {
 					setIsSharing(false);
 					setScreenStream(null);
-					toast.info("Screen sharing stopped");
+					toast.info('Screen sharing stopped');
 				};
 			});
 			
-			toast.success("Screen sharing started");
-			track("Screen sharing");
+			toast.success('Screen sharing started');
+			track('Screen sharing');
 		} catch (error) {
 			const errorHandler = {
 				handleError: (err: any) => {
-					console.error("Screen sharing error:", err);
-					toast.error("Failed to start screen sharing");
+					console.error('Screen sharing error:', err);
+					toast.error('Failed to start screen sharing');
 					setIsSharing(false);
 					setScreenStream(null);
 				}
@@ -156,7 +156,7 @@ export default function Home() {
 			screenStream.getTracks().forEach(track => track.stop());
 			setIsSharing(false);
 			setScreenStream(null);
-			toast.info("Screen sharing stopped");
+			toast.info('Screen sharing stopped');
 		}
 	}
 
@@ -166,42 +166,42 @@ export default function Home() {
 	>(async (prevMessages, data) => {
 		const formData = new FormData();
 
-		if (typeof data === "string") {
-			formData.append("input", data);
-			track("Text input");
+		if (typeof data === 'string') {
+			formData.append('input', data);
+			track('Text input');
 		} else {
-			formData.append("input", data, "audio.wav");
-			track("Speech input");
+			formData.append('input', data, 'audio.wav');
+			track('Speech input');
 		}
 
 		// Capture screenshot if screen sharing is active
 		const screenshot = await captureScreenshot();
 		if (screenshot) {
-			formData.append("screenshot", screenshot);
-			track("Screenshot captured");
+			formData.append('screenshot', screenshot);
+			track('Screenshot captured');
 		}
 
 		for (const message of prevMessages) {
-			formData.append("message", JSON.stringify(message));
+			formData.append('message', JSON.stringify(message));
 		}
 
 		const submittedAt = Date.now();
 
-		const response = await fetch("/api", {
-			method: "POST",
+		const response = await fetch('/api', {
+			method: 'POST',
 			body: formData,
 		});
 
 		const transcript = decodeURIComponent(
-			response.headers.get("X-Transcript") || ""
+			response.headers.get('X-Transcript') || ''
 		);
-		const text = decodeURIComponent(response.headers.get("X-Response") || "");
+		const text = decodeURIComponent(response.headers.get('X-Response') || '');
 
 		if (!response.ok || !transcript || !text || !response.body) {
 			if (response.status === 429) {
-				toast.error("Too many requests. Please try again later.");
+				toast.error('Too many requests. Please try again later.');
 			} else {
-				toast.error((await response.text()) || "An error occurred.");
+				toast.error((await response.text()) || 'An error occurred.');
 			}
 
 			return prevMessages;
@@ -212,7 +212,7 @@ export default function Home() {
 		// Only play audio if conversation is not paused
 		if (!isPaused) {
 			player.play(response.body, () => {
-				const isFirefox = navigator.userAgent.includes("Firefox");
+				const isFirefox = navigator.userAgent.includes('Firefox');
 				if (isFirefox) vad.start();
 			});
 		}
@@ -222,11 +222,11 @@ export default function Home() {
 		return [
 			...prevMessages,
 			{
-				role: "user",
+				role: 'user',
 				content: transcript,
 			},
 			{
-				role: "assistant",
+				role: 'assistant',
 				content: text,
 				latency,
 			},
@@ -244,67 +244,67 @@ export default function Home() {
 
 	return (
 		<>
-			<div className="pb-4 min-h-28" />
+			<div className='pb-4 min-h-28' />
 
-			<div className="flex items-center justify-center gap-2 w-full max-w-3xl mb-4">
+			<div className='flex items-center justify-center gap-2 w-full max-w-3xl mb-4'>
 				<button
-					type="button"
+					type='button'
 					onClick={isSharing ? stopScreenShare : startScreenShare}
 					className={clsx(
-						"flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
+						'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors',
 						isSharing
-							? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-800/50"
-							: "bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+							? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-800/50'
+							: 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
 					)}
 				>
 					<ScreenShareIcon />
-					{isSharing ? "Stop Sharing" : "Share Screen"}
+					{isSharing ? 'Stop Sharing' : 'Share Screen'}
 				</button>
 				
 				<button
-					type="button"
+					type='button'
 					onClick={togglePause}
 					className={clsx(
-						"flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
+						'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors',
 						isPaused
-							? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-800/50"
-							: "bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+							? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-800/50'
+							: 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
 					)}
 				>
-					{isPaused ? "Start Conversation" : "Pause Conversation"}
+					{isPaused ? 'Start Conversation' : 'Pause Conversation'}
 				</button>
 			</div>
 
 			<form
-				className="rounded-full bg-neutral-200/80 dark:bg-neutral-800/80 flex items-center w-full max-w-3xl border border-transparent hover:border-neutral-300 focus-within:border-neutral-400 hover:focus-within:border-neutral-400 dark:hover:border-neutral-700 dark:focus-within:border-neutral-600 dark:hover:focus-within:border-neutral-600"
+				className='rounded-full bg-neutral-200/80 dark:bg-neutral-800/80 flex items-center w-full max-w-3xl border border-transparent hover:border-neutral-300 focus-within:border-neutral-400 hover:focus-within:border-neutral-400 dark:hover:border-neutral-700 dark:focus-within:border-neutral-600 dark:hover:focus-within:border-neutral-600'
 				onSubmit={handleFormSubmit}
 			>
 				<input
-					type="text"
-					className="bg-transparent focus:outline-hidden p-4 w-full placeholder:text-neutral-600 dark:placeholder:text-neutral-400"
+					type='text'
+					className='bg-transparent focus:outline-hidden p-4 w-full placeholder:text-neutral-600 dark:placeholder:text-neutral-400'
 					required
-					placeholder="Ask me anything"
+					placeholder='Ask me anything'
 					value={input}
 					onChange={(e) => setInput(e.target.value)}
 					ref={inputRef}
 				/>
 
 				<button
-					type="submit"
-					className="p-4 text-neutral-700 hover:text-black dark:text-neutral-300 dark:hover:text-white"
+					type='submit'
+					className='p-4 text-neutral-700 hover:text-black dark:text-neutral-300 dark:hover:text-white'
 					disabled={isPending}
-					aria-label="Submit"
+					aria-label='Submit'
 				>
 					{isPending ? <LoadingIcon /> : <EnterIcon />}
 				</button>
 			</form>
 
-			<div className="text-neutral-400 dark:text-neutral-600 pt-4 text-center max-w-xl text-balance min-h-28 space-y-4">
+			<div className='text-neutral-400 dark:text-neutral-600 pt-4 text-center max-w-xl text-balance min-h-28 space-y-4'>
 				{messages.length > 0 && (
 					<p>
 						{messages.at(-1)?.content}
-						<span className="text-xs font-mono text-neutral-300 dark:text-neutral-700">
-							{" "}
+						<span className='text-xs font-mono text-neutral-300 dark:text-neutral-700'>
+							{' '}
 							({messages.at(-1)?.latency}ms)
 						</span>
 					</p>
@@ -313,8 +313,8 @@ export default function Home() {
 				{messages.length === 0 && (
 					<>
 						<p>
-							Made by{" "}
-							<A href="https://x.com/josefbuettgen">Josef Büttgen</A>.
+							Made by{' '}
+							<A href='https://x.com/josefbuettgen'>Josef Büttgen</A>.
 						</p>
 
 						{vad.loading ? (
@@ -322,7 +322,7 @@ export default function Home() {
 						) : vad.errored ? (
 							<p>Failed to load speech detection.</p>
 						) : isPaused ? (
-							<p>Click "Start Conversation" to begin.</p>
+							<p>Click 'Start Conversation' to begin.</p>
 						) : (
 							<p>Start talking to chat.</p>
 						)}
@@ -332,11 +332,11 @@ export default function Home() {
 
 			<div
 				className={clsx(
-					"absolute size-36 blur-3xl rounded-full bg-linear-to-b from-red-200 to-red-400 dark:from-red-600 dark:to-red-800 -z-50 transition ease-in-out",
+					'absolute size-36 blur-3xl rounded-full bg-linear-to-b from-red-200 to-red-400 dark:from-red-600 dark:to-red-800 -z-50 transition ease-in-out',
 					{
-						"opacity-0": vad.loading || vad.errored || isPaused,
-						"opacity-30": !vad.loading && !vad.errored && !vad.userSpeaking && !isPaused,
-						"opacity-100 scale-110": vad.userSpeaking && !isPaused,
+						'opacity-0': vad.loading || vad.errored || isPaused,
+						'opacity-30': !vad.loading && !vad.errored && !vad.userSpeaking && !isPaused,
+						'opacity-100 scale-110': vad.userSpeaking && !isPaused,
 					}
 				)}
 			/>
@@ -348,7 +348,7 @@ function A(props: any) {
 	return (
 		<a
 			{...props}
-			className="text-neutral-500 dark:text-neutral-500 hover:underline font-medium"
+			className='text-neutral-500 dark:text-neutral-500 hover:underline font-medium'
 		/>
 	);
 }
