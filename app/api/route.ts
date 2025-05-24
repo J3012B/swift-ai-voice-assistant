@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { zfd } from "zod-form-data";
 import { after } from "next/server";
+import OpenAI from "openai";
 
 const groq = new Groq();
 
@@ -87,6 +88,8 @@ export async function POST(request: Request) {
 	);
 
 	if (!response) return new Response("Invalid response", { status: 500 });
+
+	
 
 	console.time(
 		"cartesia request " + request.headers.get("x-vercel-id") || "local"
