@@ -1,11 +1,8 @@
-import Groq from "groq-sdk";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { zfd } from "zod-form-data";
 import { after } from "next/server";
-import OpenAI from "openai";
-
-const groq = new Groq();
+import { openAIService } from "../lib/openai-service";
 
 const schema = zfd.formData({
 	input: z.union([zfd.text(), zfd.file()]),
@@ -77,19 +74,14 @@ export async function POST(request: Request) {
 
 	messages.push(userMessage);
 
-	const completion = await groq.chat.completions.create({
-		model: "meta-llama/llama-4-scout-17b-16e-instruct",
-		messages: messages as any,
-	});
+	// Use our OpenAI service instead of Groq for chat completion
+	const response = await openAIService.getChatCompletion(messages as any);
 
-	const response = completion.choices[0].message.content;
 	console.timeEnd(
 		"text completion " + request.headers.get("x-vercel-id") || "local"
 	);
 
 	if (!response) return new Response("Invalid response", { status: 500 });
-
-	
 
 	console.time(
 		"cartesia request " + request.headers.get("x-vercel-id") || "local"
@@ -161,13 +153,11 @@ async function getTranscript(input: string | File) {
 	if (typeof input === "string") return input;
 
 	try {
-		// Create a File object from the Blob which is compatible with Groq's API
+		// Create a File object from the Blob which is compatible with OpenAI's API
 		const file = new File([input], "audio.wav", { type: "audio/wav" });
 
-		const { text } = await groq.audio.transcriptions.create({
-			file: file,
-			model: "whisper-large-v3",
-		});
+		// Use our OpenAI service instead of Groq
+		const text = await openAIService.getTranscription(file);
 
 		return text.trim() || null;
 	} catch (error) {
