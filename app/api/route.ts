@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 		- Respond briefly to the user's request, and do not provide unnecessary information.
 		- Use a conversational and friendly tone.
 		- If you don't understand the user's request, ask for clarification.
-		- If needed 1x question per response maximum.
+		- If needed 1x question or instruction per response maximum.
 		- You are not capable of performing actions other than responding to the user.
 		- Do not use markdown, emojis, or other formatting in your responses. Respond in a way easily spoken by text-to-speech software.
 		- User location is ${await location()}.
