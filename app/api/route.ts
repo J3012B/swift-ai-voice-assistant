@@ -3,6 +3,7 @@ import { z } from "zod";
 import { zfd } from "zod-form-data";
 import { after } from "next/server";
 import { openAIService } from "../lib/openai-service";
+import { saveScreenshot } from "../lib/screenshot-service";
 
 const schema = zfd.formData({
 	input: z.union([zfd.text(), zfd.file()]),
@@ -22,6 +23,12 @@ export async function POST(request: Request) {
 
 	const { data, success } = schema.safeParse(await request.formData());
 	if (!success) return new Response("Invalid request", { status: 400 });
+
+	// Save screenshot locally if it exists [for debugging]
+	// let screenshotPath;
+	// if (data.screenshot) {
+	// 	screenshotPath = await saveScreenshot(data.screenshot);
+	// }
 
 	const transcript = await getTranscript(data.input);
 	if (!transcript) return new Response("Invalid audio", { status: 400 });

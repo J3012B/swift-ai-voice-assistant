@@ -37,3 +37,7 @@ next-env.d.ts
 
 # files copied from npm modules
 public/
+
+screenshot.png
+screenshot.jpg
+screenshot.jpeg
