@@ -17,7 +17,7 @@ class OpenAIService {
 	 * Get a chat completion from OpenAI
 	 */
 	async getChatCompletion(messages: any[], options?: { max_output_tokens?: number }) {
-		console.log('messages', JSON.stringify(messages, null, 2));
+		// console.log('messages', JSON.stringify(messages, null, 2));
 
 		try {
 			const response = await this.client.responses.create({
