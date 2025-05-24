@@ -45,12 +45,13 @@ export async function POST(request: Request) {
 		{
 			role: "system",
 			content: `${data.screenshot ? "- You are Grace, a friendly and helpful voice assistant and the user is sharing their desktop screen with you." :
-				"- You are Grace, a friendly and helpful voice assistant. The user is not sharing their screen with you right now, so tell them to share their screen with you so you can help them."}
-		- Respond briefly to the user's request, and do not provide unnecessary information.
+				"- You are Grace, a friendly and helpful voice assistant. The user is not sharing their screen with you right now, so tell them to share their screen with you by clicking on 'Share Screen' so you can help them."}
+		- Respond briefly, human-like, to the user's request, and do not provide unnecessary information. Only 2-3 sentences maximum.
+		${data.screenshot ? "- You can see the user's screen, so you can help them with their request. Look at it and give them the best possible answer." : ""}
 		- Use a conversational and friendly tone.
 		- If you don't understand the user's request, ask for clarification.
 		- If needed 1x question or instruction per response maximum.
-		- You are not capable of performing actions other than responding to the user.
+		- You are not capable of performing actions other than ${data.screenshot ? "seeing the users screen and responding to their request" : "responding to the users request"}.
 		- Do not use markdown, emojis, or other formatting in your responses. Respond in a way easily spoken by text-to-speech software.
 		- User location is ${await location()}.
 		- The current time is ${await time()}.`,
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
 		role: "user",
 		content: [
 			{
-				type: "text",
+				type: "input_text",
 				text: transcript,
 			},
 		],
@@ -72,17 +73,15 @@ export async function POST(request: Request) {
 	// Add screenshot to the message content if it exists
 	if (data.screenshot) {
 		userMessage.content.push({
-			type: "image_url",
-			image_url: {
-				url: data.screenshot
-			}
+			type: "input_image",
+			image_url: data.screenshot,
 		});
 	}
 
 	messages.push(userMessage);
 
 	// Use our OpenAI service instead of Groq for chat completion
-	const response = await openAIService.getChatCompletion(messages as any);
+	const response = await openAIService.getChatCompletion(messages as any, { max_output_tokens: 150 });
 
 	console.timeEnd(
 		"text completion " + request.headers.get("x-vercel-id") || "local"

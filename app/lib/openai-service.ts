@@ -16,15 +16,18 @@ class OpenAIService {
 	/**
 	 * Get a chat completion from OpenAI
 	 */
-	async getChatCompletion(messages: any[]) {
+	async getChatCompletion(messages: any[], options?: { max_output_tokens?: number }) {
+		console.log('messages', JSON.stringify(messages, null, 2));
+
 		try {
-			const completion = await this.client.chat.completions.create({
-				model: 'gpt-4o-search-preview',
-				messages: messages,
-				web_search_options: {}
+			const response = await this.client.responses.create({
+				model: "gpt-4o",
+				tools: [{ type: "web_search_preview" }],
+				input: messages,
+				max_output_tokens: options?.max_output_tokens,
 			});
 
-			return completion.choices[0].message.content;
+			return response.output_text;
 		} catch (error) {
 			const errorHandler = {
 				handleError: (err: any) => {
