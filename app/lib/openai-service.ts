@@ -19,8 +19,9 @@ class OpenAIService {
 	async getChatCompletion(messages: any[]) {
 		try {
 			const completion = await this.client.chat.completions.create({
-				model: 'gpt-4o',
+				model: 'gpt-4o-search-preview',
 				messages: messages,
+				web_search_options: {}
 			});
 
 			return completion.choices[0].message.content;
