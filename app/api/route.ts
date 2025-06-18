@@ -4,6 +4,7 @@ import { zfd } from "zod-form-data";
 import { after } from "next/server";
 import { openAIService } from "../lib/openai-service";
 import { saveScreenshot } from "../lib/screenshot-service";
+import { telegramErrorNotifier } from "../lib/telegram-error-notifier";
 
 const schema = zfd.formData({
 	input: z.union([zfd.text(), zfd.file()]),
@@ -19,7 +20,10 @@ const schema = zfd.formData({
 });
 
 export async function POST(request: Request) {
-	console.time("transcribe " + request.headers.get("x-vercel-id") || "local");
+	const requestId = request.headers.get("x-vercel-id") || "local";
+	const userAgent = request.headers.get("user-agent") || undefined;
+	
+	console.time("transcribe " + requestId);
 
 	const { data, success } = schema.safeParse(await request.formData());
 	if (!success) return new Response("Invalid request", { status: 400 });
@@ -30,7 +34,7 @@ export async function POST(request: Request) {
 	// 	screenshotPath = await saveScreenshot(data.screenshot);
 	// }
 
-	const transcript = await getTranscript(data.input);
+	const transcript = await getTranscript(data.input, requestId);
 	if (!transcript) return new Response("Invalid audio", { status: 400 });
 
 	console.timeEnd(
@@ -81,52 +85,85 @@ export async function POST(request: Request) {
 	messages.push(userMessage);
 
 	// Use our OpenAI service instead of Groq for chat completion
-	const response = await openAIService.getChatCompletion(messages as any, { max_output_tokens: 150 });
-
-	console.timeEnd(
-		"text completion " + request.headers.get("x-vercel-id") || "local"
-	);
-
-	if (!response) return new Response("Invalid response", { status: 500 });
-
-	console.time(
-		"cartesia request " + request.headers.get("x-vercel-id") || "local"
-	);
-
-	const voice = await fetch("https://api.cartesia.ai/tts/bytes", {
-		method: "POST",
-		headers: {
-			"Cartesia-Version": "2024-06-30",
-			"Content-Type": "application/json",
-			"X-API-Key": process.env.CARTESIA_API_KEY!,
-		},
-		body: JSON.stringify({
-			model_id: "sonic-english",
-			transcript: response,
-			voice: {
-				mode: "id",
-				id: "79a125e8-cd45-4c13-8a67-188112f4dd22",
-			},
-			output_format: {
-				container: "raw",
-				encoding: "pcm_f32le",
-				sample_rate: 24000,
-			},
-		}),
-	});
-
-	console.timeEnd(
-		"cartesia request " + request.headers.get("x-vercel-id") || "local"
-	);
-
-	if (!voice.ok) {
-		console.error(await voice.text());
-		return new Response("Voice synthesis failed", { status: 500 });
+	let response: string;
+	try {
+		response = await openAIService.getChatCompletion(messages as any, { max_output_tokens: 150 });
+		
+		if (!response) {
+			throw new Error("OpenAI returned empty response");
+		}
+	} catch (error) {
+		console.error("OpenAI chat completion error:", error);
+		
+		// Send error notification to admin
+		await telegramErrorNotifier.notifyOpenAIError(
+			"Chat completion failed",
+			error instanceof Error ? error.message : String(error),
+			requestId
+		);
+		
+		return new Response("AI service temporarily unavailable", { status: 500 });
 	}
 
-	console.time("stream " + request.headers.get("x-vercel-id") || "local");
+	console.timeEnd("text completion " + requestId);
+
+	console.time("cartesia request " + requestId);
+
+	let voice: Response;
+	try {
+		voice = await fetch("https://api.cartesia.ai/tts/bytes", {
+			method: "POST",
+			headers: {
+				"Cartesia-Version": "2024-06-30",
+				"Content-Type": "application/json",
+				"X-API-Key": process.env.CARTESIA_API_KEY!,
+			},
+			body: JSON.stringify({
+				model_id: "sonic-english",
+				transcript: response,
+				voice: {
+					mode: "id",
+					id: "79a125e8-cd45-4c13-8a67-188112f4dd22",
+				},
+				output_format: {
+					container: "raw",
+					encoding: "pcm_f32le",
+					sample_rate: 24000,
+				},
+			}),
+		});
+
+		if (!voice.ok) {
+			const errorText = await voice.text();
+			console.error("Cartesia API error:", errorText);
+			
+			// Send error notification to admin
+			await telegramErrorNotifier.notifyCartesiaError(
+				`Voice synthesis failed (${voice.status}: ${voice.statusText})`,
+				errorText,
+				requestId
+			);
+			
+			return new Response("Voice synthesis failed", { status: 500 });
+		}
+	} catch (error) {
+		console.error("Cartesia fetch error:", error);
+		
+		// Send error notification to admin
+		await telegramErrorNotifier.notifyCartesiaError(
+			"Failed to connect to Cartesia API",
+			error instanceof Error ? error.message : String(error),
+			requestId
+		);
+		
+		return new Response("Voice synthesis unavailable", { status: 500 });
+	}
+
+	console.timeEnd("cartesia request " + requestId);
+
+	console.time("stream " + requestId);
 	after(() => {
-		console.timeEnd("stream " + request.headers.get("x-vercel-id") || "local");
+		console.timeEnd("stream " + requestId);
 	});
 
 	return new Response(voice.body, {
@@ -155,7 +192,7 @@ async function time() {
 	return new Date().toLocaleString("en-US", { timeZone });
 }
 
-async function getTranscript(input: string | File) {
+async function getTranscript(input: string | File, requestId?: string) {
 	if (typeof input === "string") return input;
 
 	try {
@@ -167,13 +204,15 @@ async function getTranscript(input: string | File) {
 
 		return text.trim() || null;
 	} catch (error) {
-		const errorHandler = {
-			handleError: (err: any) => {
-				console.error("Transcription error:", err);
-				return null; // Empty audio file
-			}
-		};
+		console.error("Transcription error:", error);
+		
+		// Send error notification to admin
+		await telegramErrorNotifier.notifyOpenAIError(
+			"Transcription failed",
+			error instanceof Error ? error.message : String(error),
+			requestId
+		);
 
-		return errorHandler.handleError(error);
+		return null; // Empty audio file
 	}
 }
