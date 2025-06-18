@@ -6,20 +6,28 @@ import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/react";
 
 export const metadata: Metadata = {
-	title: "Talk To Your Computer",
+	title: "Talk To Your Computer - Easiest Screen Sharing + AI Voice Chat",
 	description:
-		"An easy way to share your screen with AI and ask it questions.",
+		"The easiest way to share your screen and talk with AI at the same time. Voice-powered AI assistant that can see and understand everything on your screen.",
+	keywords: ["AI voice assistant", "screen sharing AI", "voice chat AI", "AI screen reader", "talk to computer", "AI desktop assistant"],
 	openGraph: {
-		title: "Talk To Your Computer",
+		title: "Talk To Your Computer - Easiest Screen Sharing + AI Voice Chat",
 		description:
-			"An easy way to share your screen with AI and ask it questions.",
+			"The easiest way to share your screen and talk with AI at the same time. Voice-powered AI assistant that can see and understand everything on your screen.",
+		type: "website",
+		siteName: "Talk To Your Computer",
 	},
 	twitter: {
 		card: "summary_large_image",
-		title: "Talk To Your Computer",
+		title: "Talk To Your Computer - Easiest Screen Sharing + AI Voice Chat",
 		description:
-			"An easy way to share your screen with AI and ask it questions.",
+			"The easiest way to share your screen and talk with AI at the same time. Voice-powered AI assistant that can see and understand everything on your screen.",
 	},
+	robots: {
+		index: true,
+		follow: true,
+	},
+	authors: [{ name: "Josef Büttgen" }],
 };
 
 const geist = Geist({
