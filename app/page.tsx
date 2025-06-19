@@ -13,6 +13,7 @@ import { EnterIcon, LoadingIcon, ScreenShareIcon } from '@/lib/icons';
 import { usePlayer } from '@/lib/usePlayer';
 import { track } from '@vercel/analytics';
 import { useMicVAD, utils } from '@ricky0123/vad-react';
+import ProfileDropdown from './components/ProfileDropdown';
 
 type Message = {
 	role: 'user' | 'assistant';
@@ -244,6 +245,19 @@ export default function Home() {
 
 	return (
 		<div>
+			{/* Profile button in very top-right of screen */}
+			<div className="fixed top-4 right-4 z-40">
+				<ProfileDropdown />
+			</div>
+			
+			{/* Made by Josef Büttgen in bottom-right */}
+			<div className="fixed bottom-4 right-4 z-10">
+				<p className="text-xs text-neutral-400 dark:text-neutral-600">
+					Made by{' '}
+					<A href='https://x.com/josefbuettgen'>Josef Büttgen</A>
+				</p>
+			</div>
+			
 			<div className='pb-4 min-h-28' />
 
 			<div className='flex items-center justify-center gap-2 w-full max-w-3xl mb-4'>
@@ -312,11 +326,6 @@ export default function Home() {
 
 				{messages.length === 0 && (
 					<div>
-						<p>
-							Made by{' '}
-							<A href='https://x.com/josefbuettgen'>Josef Büttgen</A>.
-						</p>
-
 						{vad.loading ? (
 							<p>Loading speech detection...</p>
 						) : vad.errored ? (

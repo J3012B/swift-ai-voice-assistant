@@ -14,6 +14,6 @@ Thank you to the teams at Groq and Cartesia for providing access to their APIs f
 ## Developing
 
 -   Clone the repository
--   Copy `.env.example` to `.env.local` and fill in the environment variables.
+-   Copy `.env.example` to `.env.local` and fill in the environment variables (add your `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
 -   Run `pnpm install` to install dependencies.
 -   Run `pnpm dev` to start the development server.

@@ -4,6 +4,8 @@ import clsx from "clsx";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/react";
+import Providers from "./providers";
+import AuthModal from "./components/AuthModal";
 
 export const metadata: Metadata = {
 	title: "Talk To Your Computer - Easiest Screen Sharing + AI Voice Chat",
@@ -54,9 +56,12 @@ export default function RootLayout({
 					"py-8 px-6 lg:p-10 dark:text-white bg-white dark:bg-black min-h-dvh flex flex-col justify-between antialiased font-sans select-none"
 				)}
 			>
-				<main className="flex flex-col items-center justify-center grow">
-					{children}
-				</main>
+				<Providers>
+					<main className="flex flex-col items-center justify-center grow">
+						{children}
+					</main>
+					<AuthModal />
+				</Providers>
 
 				<Toaster richColors theme="system" />
 				<Analytics />
