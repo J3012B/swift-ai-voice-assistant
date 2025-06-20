@@ -152,6 +152,55 @@ ${serviceEmoji[data.service]} <b>${data.service} API Error</b>
   }
 
   /**
+   * Send user signup notification to admin
+   */
+  async notifyUserSignup(email: string, signupMethod: 'email' | 'google' = 'email'): Promise<boolean> {
+    if (!this.enabled || !this.adminUserId) {
+      return false;
+    }
+
+    try {
+      const timestamp = new Date();
+      const timeString = timestamp.toLocaleString('en-US', {
+        timeZone: 'UTC',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+
+      const methodEmoji = signupMethod === 'google' ? '🔗' : '📧';
+      const methodText = signupMethod === 'google' ? 'Google OAuth' : 'Email/Password';
+
+      const message = `
+🎉 <b>New User Signup!</b>
+
+👤 <b>Email:</b> ${this.escapeHtml(email)}
+${methodEmoji} <b>Method:</b> ${methodText}
+⏰ <b>Time:</b> ${timeString} UTC
+      `.trim();
+
+      const success = await telegramService.sendHtmlMessage(
+        this.adminUserId,
+        message
+      );
+
+      if (success) {
+        console.log(`✅ Signup notification sent to admin for user: ${email}`);
+      } else {
+        console.error(`❌ Failed to send signup notification for user: ${email}`);
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Error sending signup notification:', error);
+      return false;
+    }
+  }
+
+  /**
    * Check if notifications are enabled
    */
   isEnabled(): boolean {

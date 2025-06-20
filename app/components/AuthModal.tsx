@@ -28,6 +28,27 @@ export default function AuthModal() {
       setPassword('');
       setMessage(null);
       setIsInitializing(false);
+
+      // Check if this is a new signup by looking for new user data
+      // This helps catch OAuth signups that redirect back to the page
+      const isNewUser = session.user?.app_metadata?.provider && !sessionStorage.getItem('signup_notified_' + session.user.id);
+      
+      if (isNewUser && session.user?.email) {
+        // Mark this user as notified to prevent duplicate notifications
+        sessionStorage.setItem('signup_notified_' + session.user.id, 'true');
+        
+        // Send Telegram notification for OAuth signup
+        fetch('/api/telegram/signup-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email: session.user.email, 
+            method: session.user.app_metadata.provider === 'google' ? 'google' : 'email'
+          }),
+        }).catch(error => {
+          console.error('Failed to send OAuth signup notification:', error);
+        });
+      }
     }
 
     return () => clearTimeout(timer);
@@ -69,6 +90,18 @@ export default function AuthModal() {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         setMessage('Check your email to confirm your account!');
+        
+        // Send Telegram notification for new signup
+        try {
+          await fetch('/api/telegram/signup-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, method: 'email' }),
+          });
+        } catch (notificationError) {
+          console.error('Failed to send signup notification:', notificationError);
+          // Don't fail the signup if notification fails
+        }
       } else if (activeTab === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${location.origin}`,
