@@ -1,0 +1,27 @@
+{
+  "version": "5",
+  "dialect": "pg",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1751038174002,
+      "tag": "0000_elite_arclight",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1751038814128,
+      "tag": "0001_exotic_quicksilver",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1751038893705,
+      "tag": "0002_lying_sentinel",
+      "breakpoints": true
+    }
+  ]
+}
