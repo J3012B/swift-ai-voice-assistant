@@ -19,6 +19,8 @@ DATABASE_URL=postgres://postgres:<password>@db.<project>.supabase.co:5432/postgr
 
 - `npm run db:generate` - Generate SQL migrations from schema changes
 - `npm run db:push` - Push schema changes directly to database (for development)
+- `npm run db:push:dev` - Push schema changes to development environment
+- `npm run db:push:prod` - Push schema changes to production environment
 - `npm run db:studio` - Open Drizzle Studio for database exploration
 
 ## Current Schema
@@ -45,7 +47,22 @@ const allUsers = await db.select().from(users);
 
 ## Migration Workflow
 
+### Making Database Changes
+
 1. Modify schema in `drizzle/schema.ts`
-2. Run `npm run db:generate` to create migration files
-3. Review generated SQL in `supabase/migrations/`
-4. Apply migrations via Supabase CLI or push directly with `npm run db:push` 
+2. Choose your deployment method:
+
+#### Option A: Direct Push (Recommended for Development)
+- For dev environment: `npm run db:push:dev`
+- For production environment: `npm run db:push:prod`
+
+#### Option B: Generate Migration Files
+1. Run `npm run db:generate` to create migration files
+2. Review generated SQL in `supabase/migrations/`
+3. Apply migrations via Supabase CLI
+
+### Environment-Specific Commands
+
+- **Development**: Use `npm run db:push:dev` to push changes to your development database
+- **Production**: Use `npm run db:push:prod` to push changes to your production database
+- **General**: Use `npm run db:push` for default configuration 

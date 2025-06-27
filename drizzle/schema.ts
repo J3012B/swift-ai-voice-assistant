@@ -18,4 +18,18 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+});
+
+// Table to track individual interactions/requests made by users
+export const interactions = pgTable("interactions", {
+  id: uuid("id")
+    .primaryKey()
+    .defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // Convention: use timestamp without timezone for simplicity
+  createdAt: timestamp("created_at")
+    .defaultNow()
+    .notNull(),
 }); 

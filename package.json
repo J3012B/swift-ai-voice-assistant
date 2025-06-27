@@ -7,8 +7,10 @@
 		"build": "next build",
 		"start": "next start",
 		"lint": "next lint",
-		"db:generate": "drizzle-kit generate:pg",
+		"db:generate": "drizzle-kit generate:pg --config=drizzle-dev.config.ts",
 		"db:push": "drizzle-kit push:pg",
+		"db:push:dev": "drizzle-kit push:pg --config=drizzle-dev.config.ts",
+		"db:push:prod": "drizzle-kit push:pg --config=drizzle-prod.config.ts",
 		"db:studio": "drizzle-kit studio"
 	},
 	"dependencies": {
