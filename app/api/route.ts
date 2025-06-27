@@ -2,9 +2,11 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { zfd } from "zod-form-data";
 import { after } from "next/server";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 import { openAIService } from "../lib/openai-service";
-import { saveScreenshot } from "../lib/screenshot-service";
 import { telegramErrorNotifier } from "../lib/telegram-error-notifier";
+import { interactionService } from "../lib/interaction-service";
 
 const schema = zfd.formData({
 	input: z.union([zfd.text(), zfd.file()]),
@@ -22,6 +24,10 @@ const schema = zfd.formData({
 export async function POST(request: Request) {
 	const requestId = request.headers.get("x-vercel-id") || "local";
 	const userAgent = request.headers.get("user-agent") || undefined;
+	
+	// Get user session for interaction tracking
+	const supabase = createRouteHandlerClient({ cookies });
+	const { data: { session } } = await supabase.auth.getSession();
 	
 	console.time("transcribe " + requestId);
 
@@ -107,6 +113,9 @@ export async function POST(request: Request) {
 
 	console.timeEnd("text completion " + requestId);
 
+	// Track interaction in database if user is authenticated
+	const interactionId = await interactionService.trackInteraction(session);
+
 	console.time("cartesia request " + requestId);
 
 	let voice: Response;
@@ -170,6 +179,7 @@ export async function POST(request: Request) {
 		headers: {
 			"X-Transcript": encodeURIComponent(transcript),
 			"X-Response": encodeURIComponent(response),
+			...(interactionId && { "X-Interaction-Id": interactionId }),
 		},
 	});
 }
