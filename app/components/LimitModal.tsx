@@ -37,7 +37,7 @@ export default function LimitModal({ isOpen, onClose, usageCount, dailyLimit, us
               Daily Limit Reached
             </h1>
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              You've used {usageCount} of {dailyLimit} daily interactions
+              You&apos;ve used {usageCount} of {dailyLimit} daily interactions
             </p>
           </div>
 
