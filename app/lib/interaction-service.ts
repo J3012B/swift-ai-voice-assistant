@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { interactions, users } from "../../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql, gte, lt, and } from "drizzle-orm";
 import type { Session } from '@supabase/supabase-js';
 
 /**
@@ -31,6 +31,47 @@ class InteractionService {
 			// Don't fail the request if interaction tracking fails
 			return null;
 		}
+	}
+
+	/**
+	 * Check if user has exceeded daily interaction limit (UTC-based)
+	 */
+	async checkDailyLimit(userId: string, dailyLimit: number = 10): Promise<{ exceeded: boolean; count: number }> {
+		try {
+			// Get start and end of current UTC day
+			const now = new Date();
+			const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+			const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
+			const result = await db
+				.select({ count: sql<number>`count(*)` })
+				.from(interactions)
+				.where(
+					and(
+						eq(interactions.userId, userId),
+						gte(interactions.createdAt, startOfDay),
+						lt(interactions.createdAt, endOfDay)
+					)
+				);
+
+			const count = Number(result[0]?.count) || 0;
+			return {
+				exceeded: count >= dailyLimit,
+				count: count
+			};
+		} catch (error) {
+			console.error("Failed to check daily limit:", error);
+			// If check fails, allow the interaction (fail open)
+			return { exceeded: false, count: 0 };
+		}
+	}
+
+	/**
+	 * Get remaining interactions for today (UTC-based)
+	 */
+	async getRemainingInteractions(userId: string, dailyLimit: number = 10): Promise<number> {
+		const { count } = await this.checkDailyLimit(userId, dailyLimit);
+		return Math.max(0, dailyLimit - count);
 	}
 
 	/**

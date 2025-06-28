@@ -14,6 +14,9 @@ import { usePlayer } from '@/lib/usePlayer';
 import { track } from '@vercel/analytics';
 import { useMicVAD, utils } from '@ricky0123/vad-react';
 import ProfileDropdown from './components/ProfileDropdown';
+import LimitModal from './components/LimitModal';
+import UsageIndicator from './components/UsageIndicator';
+import { useSession } from '@supabase/auth-helpers-react';
 
 type Message = {
 	role: 'user' | 'assistant';
@@ -22,10 +25,14 @@ type Message = {
 };
 
 export default function Home() {
+	const session = useSession();
 	const [input, setInput] = useState('');
 	const [isSharing, setIsSharing] = useState(false);
 	const [isPaused, setIsPaused] = useState(true);
 	const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+	const [showLimitModal, setShowLimitModal] = useState(false);
+	const [limitModalData, setLimitModalData] = useState({ usageCount: 0, dailyLimit: 10 });
+	const [refreshUsage, setRefreshUsage] = useState(0);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const player = usePlayer();
 
@@ -197,8 +204,9 @@ export default function Home() {
 			response.headers.get('X-Transcript') || ''
 		);
 		const text = decodeURIComponent(response.headers.get('X-Response') || '');
+		const isRateLimited = response.headers.get('X-Rate-Limited') === 'true';
 
-		if (!response.ok || !transcript || !text || !response.body) {
+		if (!response.ok || (!transcript && !isRateLimited) || !text || !response.body) {
 			if (response.status === 429) {
 				toast.error('Too many requests. Please try again later.');
 			} else {
@@ -206,6 +214,22 @@ export default function Home() {
 			}
 
 			return prevMessages;
+		}
+
+		// Handle rate-limited responses
+		if (isRateLimited) {
+			const usageCount = parseInt(response.headers.get('X-Usage-Count') || '0');
+			const dailyLimit = parseInt(response.headers.get('X-Daily-Limit') || '10');
+			
+			// Show limit modal
+			setLimitModalData({ usageCount, dailyLimit });
+			setShowLimitModal(true);
+			
+			// Refresh usage indicator to show limit reached
+			setRefreshUsage(prev => prev + 1);
+			
+			// Also show a toast for immediate feedback
+			toast.info(`Daily limit reached (${usageCount}/${dailyLimit})`, { duration: 3000 });
 		}
 
 		const latency = Date.now() - submittedAt;
@@ -220,6 +244,24 @@ export default function Home() {
 		
 		setInput(transcript);
 
+		// Refresh usage count after successful interaction (unless rate limited)
+		if (!isRateLimited) {
+			setRefreshUsage(prev => prev + 1);
+		}
+
+		// For rate-limited responses, only show the assistant message
+		if (isRateLimited) {
+			return [
+				...prevMessages,
+				{
+					role: 'assistant',
+					content: text,
+					latency,
+				},
+			];
+		}
+
+		// Normal flow: show both user and assistant messages
 		return [
 			...prevMessages,
 			{
@@ -245,10 +287,22 @@ export default function Home() {
 
 	return (
 		<div>
+			{/* Usage Indicator in top-left */}
+			<UsageIndicator key={refreshUsage} />
+
 			{/* Profile button in very top-right of screen */}
 			<div className="fixed top-4 right-4 z-40">
 				<ProfileDropdown />
 			</div>
+
+			{/* Limit Modal */}
+			<LimitModal
+				isOpen={showLimitModal}
+				onClose={() => setShowLimitModal(false)}
+				usageCount={limitModalData.usageCount}
+				dailyLimit={limitModalData.dailyLimit}
+				userEmail={session?.user?.email}
+			/>
 			
 			{/* Made by Josef Büttgen in bottom-right */}
 			<div className="fixed bottom-4 right-4 z-10">

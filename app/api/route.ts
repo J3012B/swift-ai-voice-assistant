@@ -4,6 +4,8 @@ import { zfd } from "zod-form-data";
 import { after } from "next/server";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+import fs from "fs";
+import path from "path";
 import { openAIService } from "../lib/openai-service";
 import { telegramErrorNotifier } from "../lib/telegram-error-notifier";
 import { interactionService } from "../lib/interaction-service";
@@ -28,6 +30,68 @@ export async function POST(request: Request) {
 	// Get user session for interaction tracking
 	const supabase = createRouteHandlerClient({ cookies });
 	const { data: { session } } = await supabase.auth.getSession();
+	
+	// Check daily limit for authenticated users
+	if (session?.user?.id) {
+		const DAILY_LIMIT = 10;
+		const { exceeded, count } = await interactionService.checkDailyLimit(session.user.id, DAILY_LIMIT);
+		
+		if (exceeded) {
+			// Return prerecorded limit message
+			const limitMessage = "You've reached your daily limit of interactions for 'Talk To Your Computer'. Your usage resets at midnight, or you can upgrade now for unlimited access. Thanks for using the app!";
+			
+			try {
+				// Serve prerecorded audio file from assets directory
+				const audioPath = path.join(process.cwd(), 'app', 'api', 'assets', 'limit-reached.raw');
+				const audioBuffer = fs.readFileSync(audioPath);
+				
+				return new Response(audioBuffer, {
+					headers: {
+						"X-Transcript": encodeURIComponent(""), // No user transcript since limit reached
+						"X-Response": encodeURIComponent(limitMessage),
+						"X-Rate-Limited": "true",
+						"X-Usage-Count": count.toString(),
+						"X-Daily-Limit": DAILY_LIMIT.toString(),
+					},
+				});
+			} catch (error) {
+				console.error("Failed to serve prerecorded limit audio:", error);
+				
+				// Fallback: generate the message on-the-fly
+				const voice = await fetch("https://api.cartesia.ai/tts/bytes", {
+					method: "POST",
+					headers: {
+						"Cartesia-Version": "2024-06-30",
+						"Content-Type": "application/json",
+						"X-API-Key": process.env.CARTESIA_API_KEY!,
+					},
+					body: JSON.stringify({
+						model_id: "sonic-english",
+						transcript: limitMessage,
+						voice: {
+							mode: "id",
+							id: "79a125e8-cd45-4c13-8a67-188112f4dd22",
+						},
+						output_format: {
+							container: "raw",
+							encoding: "pcm_f32le",
+							sample_rate: 24000,
+						},
+					}),
+				});
+
+				return new Response(voice.body, {
+					headers: {
+						"X-Transcript": encodeURIComponent(""),
+						"X-Response": encodeURIComponent(limitMessage),
+						"X-Rate-Limited": "true",
+						"X-Usage-Count": count.toString(),
+						"X-Daily-Limit": DAILY_LIMIT.toString(),
+					},
+				});
+			}
+		}
+	}
 	
 	console.time("transcribe " + requestId);
 
