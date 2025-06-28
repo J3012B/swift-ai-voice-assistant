@@ -23,20 +23,14 @@ class OpenAIService {
 			const response = await this.client.responses.create({
 				model: "gpt-4o",
 				tools: [{ type: "web_search_preview" }],
-				input: messages,
+				input: messages as any,
 				max_output_tokens: options?.max_output_tokens,
 			});
 
 			return response.output_text;
 		} catch (error) {
-			const errorHandler = {
-				handleError: (err: any) => {
-					console.error('OpenAI API error:', err);
-					throw err;
-				}
-			};
-
-			return errorHandler.handleError(error);
+			console.error('OpenAI API error:', error);
+			throw error;
 		}
 	}
 
@@ -52,14 +46,8 @@ class OpenAIService {
 
 			return transcription.text;
 		} catch (error) {
-			const errorHandler = {
-				handleError: (err: any) => {
-					console.error('OpenAI transcription error:', err);
-					throw err;
-				}
-			};
-
-			return errorHandler.handleError(error);
+			console.error('OpenAI transcription error:', error);
+			throw error;
 		}
 	}
 }

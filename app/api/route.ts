@@ -25,7 +25,6 @@ const schema = zfd.formData({
 
 export async function POST(request: Request) {
 	const requestId = request.headers.get("x-vercel-id") || "local";
-	const userAgent = request.headers.get("user-agent") || undefined;
 	
 	// Get user session for interaction tracking
 	const supabase = createRouteHandlerClient({ cookies });

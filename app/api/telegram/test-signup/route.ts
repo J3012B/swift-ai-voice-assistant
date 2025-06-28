@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { telegramErrorNotifier } from '../../../lib/telegram-error-notifier';
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
 	try {
 		// Test the signup notification with dummy data
 		const success = await telegramErrorNotifier.notifyUserSignup(

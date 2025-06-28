@@ -109,8 +109,8 @@ export default function AuthModal() {
         if (error) throw error;
         setMessage('Check your email for password reset instructions!');
       }
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'An error occurred');
     }
     
     setLoading(false);

@@ -2,7 +2,7 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { interactionService } from "../../lib/interaction-service";
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
 	// Get user session
 	const supabase = createRouteHandlerClient({ cookies });
 	const { data: { session } } = await supabase.auth.getSession();
