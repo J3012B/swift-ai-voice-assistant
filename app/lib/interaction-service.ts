@@ -38,6 +38,13 @@ class InteractionService {
 	 */
 	async checkDailyLimit(userId: string, dailyLimit: number = 10): Promise<{ exceeded: boolean; count: number }> {
 		try {
+			// Determine whether this user is exempt from usage limits
+			const userSettings = await db
+				.select({ disableUsageLimit: users.disableUsageLimit })
+				.from(users)
+				.where(eq(users.id, userId));
+			const isUsageLimitDisabled = userSettings[0]?.disableUsageLimit === true;
+
 			// Get start and end of current UTC day
 			const now = new Date();
 			const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -56,7 +63,7 @@ class InteractionService {
 
 			const count = Number(result[0]?.count) || 0;
 			return {
-				exceeded: count >= dailyLimit,
+				exceeded: isUsageLimitDisabled ? false : count >= dailyLimit,
 				count: count
 			};
 		} catch (error) {

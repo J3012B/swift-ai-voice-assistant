@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "disable_usage_limit" boolean;
