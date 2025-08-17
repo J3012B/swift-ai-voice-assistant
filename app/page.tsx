@@ -287,7 +287,7 @@ export default function Home() {
 
 	return (
 		<div>
-			{/* Usage Indicator in top-left */}
+			{/* Usage Indicator in bottom-left */}
 			<UsageIndicator key={refreshUsage} />
 
 			{/* Profile button in very top-right of screen */}

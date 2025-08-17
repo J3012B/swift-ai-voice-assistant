@@ -8,6 +8,7 @@ interface UsageData {
   remaining: number;
   limit: number;
   percentage: number;
+  unlimited?: boolean;
 }
 
 interface UsageIndicatorProps {
@@ -56,8 +57,10 @@ export default function UsageIndicator({ onUpgrade }: UsageIndicatorProps) {
   // Don't show if no usage data
   if (!usage) return null;
 
-  const isNearLimit = usage.percentage >= 80;
-  const isAtLimit = usage.remaining === 0;
+  const isUnlimited = usage.unlimited === true;
+  const isNearLimit = !isUnlimited && usage.percentage >= 80;
+  const isAtLimit = !isUnlimited && usage.remaining === 0;
+  const progressDash = isUnlimited ? '100, 100' : `${usage.percentage}, 100`;
 
   return (
     <div className="fixed bottom-4 left-4 z-30 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md rounded-2xl border border-neutral-200/30 dark:border-neutral-700/30 p-4 shadow-xl">
@@ -86,7 +89,7 @@ export default function UsageIndicator({ onUpgrade }: UsageIndicatorProps) {
               strokeWidth="3"
               strokeLinecap="round"
               fill="transparent"
-              strokeDasharray={`${usage.percentage}, 100`}
+              strokeDasharray={progressDash}
               d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
             />
           </svg>
@@ -115,31 +118,44 @@ export default function UsageIndicator({ onUpgrade }: UsageIndicatorProps) {
                 Limit Reached
               </span>
             )}
+            {isUnlimited && (
+              <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 text-xs px-2 py-0.5 rounded-full font-medium">
+                Unlimited
+              </span>
+            )}
           </div>
           
           <div className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-            <span className="font-medium">{usage.count} of {usage.limit}</span> interactions used
-            {usage.remaining > 0 && (
-              <span className="block text-neutral-500 dark:text-neutral-500">
-                {usage.remaining} remaining today
-              </span>
+            {isUnlimited ? (
+              <span className="font-medium">{usage.count} interactions today</span>
+            ) : (
+              <>
+                <span className="font-medium">{usage.count} of {usage.limit}</span> interactions used
+                {usage.remaining > 0 && (
+                  <span className="block text-neutral-500 dark:text-neutral-500">
+                    {usage.remaining} remaining today
+                  </span>
+                )}
+              </>
             )}
           </div>
         </div>
 
         {/* Upgrade Button */}
-        <button
-          onClick={handleUpgrade}
-          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-200 whitespace-nowrap transform hover:scale-105 ${
-            isAtLimit
-              ? 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white shadow-lg shadow-red-500/25'
-              : isNearLimit
-                ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white shadow-lg shadow-orange-500/25'
-                : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/25'
-          }`}
-        >
-          {isAtLimit ? '🚀 Upgrade' : '✨ Go Pro'}
-        </button>
+        {!isUnlimited && (
+          <button
+            onClick={handleUpgrade}
+            className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-200 whitespace-nowrap transform hover:scale-105 ${
+              isAtLimit
+                ? 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white shadow-lg shadow-red-500/25'
+                : isNearLimit
+                  ? 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white shadow-lg shadow-orange-500/25'
+                  : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/25'
+            }`}
+          >
+            {isAtLimit ? '🚀 Upgrade' : '✨ Go Pro'}
+          </button>
+        )}
       </div>
     </div>
   );
