@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from '@supabase/auth-helpers-react';
+import { STRIPE_PAYMENT_LINK } from '../lib/constants';
 
 interface UsageData {
   count: number;
@@ -44,9 +45,8 @@ export default function UsageIndicator({ onUpgrade }: UsageIndicatorProps) {
   }, [session?.user?.id]);
 
   const handleUpgrade = () => {
-    const baseUrl = 'https://buy.stripe.com/6oU00k2dw9O1fMQaca9fW00';
     const emailParam = session?.user?.email ? `?prefilled_email=${encodeURIComponent(session.user.email)}` : '';
-    const upgradeUrl = `${baseUrl}${emailParam}`;
+    const upgradeUrl = `${STRIPE_PAYMENT_LINK}${emailParam}`;
     window.open(upgradeUrl, '_blank');
     onUpgrade?.();
   };

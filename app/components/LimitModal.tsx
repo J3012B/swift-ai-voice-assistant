@@ -1,5 +1,7 @@
 'use client';
 
+import { STRIPE_PAYMENT_LINK } from '../lib/constants';
+
 interface LimitModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -12,9 +14,8 @@ export default function LimitModal({ isOpen, onClose, usageCount, dailyLimit, us
   if (!isOpen) return null;
 
   const handleUpgrade = () => {
-    const baseUrl = 'https://buy.stripe.com/6oU00k2dw9O1fMQaca9fW00';
     const emailParam = userEmail ? `?prefilled_email=${encodeURIComponent(userEmail)}` : '';
-    const upgradeUrl = `${baseUrl}${emailParam}`;
+    const upgradeUrl = `${STRIPE_PAYMENT_LINK}${emailParam}`;
     window.open(upgradeUrl, '_blank');
   };
 
