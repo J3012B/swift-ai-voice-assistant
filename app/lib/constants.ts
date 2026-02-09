@@ -2,5 +2,10 @@
  * Application-wide constants
  */
 
-export const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/3cI28raXkgsz7y5dIs4c800';
+// Subscription price
+export const SUBSCRIPTION_PRICE = 9; // $9/month
+
+// Feedback prompt threshold: show after this many interactions
+export const FEEDBACK_PROMPT_MIN_INTERACTIONS = 3;
+export const FEEDBACK_PROMPT_MAX_INTERACTIONS = 10;
 

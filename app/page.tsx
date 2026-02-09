@@ -7,6 +7,8 @@ import {
 	useRef,
 	useState,
 	startTransition,
+	useCallback,
+	useMemo,
 } from 'react';
 import { toast } from 'sonner';
 import { EnterIcon, LoadingIcon, ScreenShareIcon } from '@/lib/icons';
@@ -14,8 +16,8 @@ import { usePlayer } from '@/lib/usePlayer';
 import { track } from '@vercel/analytics';
 import { useMicVAD, utils } from '@ricky0123/vad-react';
 import ProfileDropdown from './components/ProfileDropdown';
-import LimitModal from './components/LimitModal';
-import UsageIndicator from './components/UsageIndicator';
+import PaywallModal from './components/PaywallModal';
+import FeedbackModal from './components/FeedbackModal';
 import { useSession } from '@supabase/auth-helpers-react';
 
 type Message = {
@@ -24,17 +26,136 @@ type Message = {
 	latency?: number;
 };
 
+interface SubscriptionData {
+	isSubscribed: boolean;
+	status: string;
+	interactionCount: number;
+	hasFeedback: boolean;
+	shouldShowFeedback: boolean;
+}
+
 export default function Home() {
 	const session = useSession();
 	const [input, setInput] = useState('');
 	const [isSharing, setIsSharing] = useState(false);
 	const [isPaused, setIsPaused] = useState(true);
 	const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
-	const [showLimitModal, setShowLimitModal] = useState(false);
-	const [limitModalData, setLimitModalData] = useState({ usageCount: 0, dailyLimit: 10 });
-	const [refreshUsage, setRefreshUsage] = useState(0);
+	const [showPaywall, setShowPaywall] = useState(false);
+	const [showFeedback, setShowFeedback] = useState(false);
+	const [feedbackDismissed, setFeedbackDismissed] = useState(false);
+	const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
+	const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const player = usePlayer();
+
+	// Detect ?subscribed=true or ?cancelled=true in the URL (return from Stripe Checkout)
+	const searchParams = useMemo(() => {
+		if (typeof window === 'undefined') return null;
+		return new URLSearchParams(window.location.search);
+	}, []);
+	const returnedFromCheckout = searchParams?.get('subscribed') === 'true';
+	const cancelledCheckout = searchParams?.get('cancelled') === 'true';
+
+	// Clean up URL params after reading them
+	useEffect(() => {
+		if (returnedFromCheckout || cancelledCheckout) {
+			const url = new URL(window.location.href);
+			url.searchParams.delete('subscribed');
+			url.searchParams.delete('cancelled');
+			window.history.replaceState({}, '', url.pathname);
+		}
+		if (cancelledCheckout) {
+			toast.info('Checkout cancelled. You can subscribe anytime.');
+		}
+	}, [returnedFromCheckout, cancelledCheckout]);
+
+	// Fetch subscription status
+	const fetchSubscription = useCallback(async () => {
+		if (!session?.user?.id) {
+			setSubscriptionLoading(false);
+			return;
+		}
+
+		try {
+			const response = await fetch('/api/subscription');
+			if (response.ok) {
+				const data: SubscriptionData = await response.json();
+				setSubscriptionData(data);
+				setShowPaywall(!data.isSubscribed);
+
+				// Show feedback prompt if conditions are met and not already dismissed
+				if (data.shouldShowFeedback && !feedbackDismissed) {
+					setShowFeedback(true);
+				}
+			}
+		} catch (error) {
+			console.error('Failed to fetch subscription status:', error);
+		} finally {
+			setSubscriptionLoading(false);
+		}
+	}, [session?.user?.id, feedbackDismissed]);
+
+	useEffect(() => {
+		fetchSubscription();
+	}, [fetchSubscription]);
+
+	// If user returned from Stripe Checkout, poll for subscription activation
+	// (webhook may take a moment to process)
+	useEffect(() => {
+		if (!returnedFromCheckout || !session?.user?.id) return;
+
+		toast.info('Verifying your subscription...');
+
+		let attempts = 0;
+		const maxAttempts = 10;
+
+		const pollInterval = setInterval(async () => {
+			attempts++;
+			try {
+				const response = await fetch('/api/subscription');
+				if (response.ok) {
+					const data: SubscriptionData = await response.json();
+					if (data.isSubscribed) {
+						setSubscriptionData(data);
+						setShowPaywall(false);
+						toast.success('Subscription activated! Welcome aboard.');
+						clearInterval(pollInterval);
+						return;
+					}
+				}
+			} catch {
+				// Ignore fetch errors during polling
+			}
+
+			if (attempts >= maxAttempts) {
+				clearInterval(pollInterval);
+				toast.info(
+					'Subscription is still being processed. It may take a minute — use the refresh button on the paywall.',
+				);
+			}
+		}, 2000); // Poll every 2 seconds
+
+		return () => clearInterval(pollInterval);
+	}, [returnedFromCheckout, session?.user?.id]);
+
+	// Re-check subscription when window regains focus (user may have just paid in another tab)
+	useEffect(() => {
+		function handleFocus() {
+			if (session?.user?.id) {
+				fetchSubscription();
+			}
+		}
+
+		window.addEventListener('focus', handleFocus);
+		return () => window.removeEventListener('focus', handleFocus);
+	}, [session?.user?.id, fetchSubscription]);
+
+	// Track paywall view for analytics
+	useEffect(() => {
+		if (showPaywall && session?.user?.id) {
+			track('Paywall viewed');
+		}
+	}, [showPaywall, session?.user?.id]);
 
 	const vad = useMicVAD({
 		startOnLoad: false,
@@ -200,13 +321,22 @@ export default function Home() {
 			body: formData,
 		});
 
+		// Handle subscription required (hard paywall)
+		if (response.status === 403) {
+			const data = await response.json().catch(() => null);
+			if (data?.error === 'subscription_required') {
+				setShowPaywall(true);
+				toast.error('A subscription is required to use TalkToYourComputer.');
+				return prevMessages;
+			}
+		}
+
 		const transcript = decodeURIComponent(
 			response.headers.get('X-Transcript') || ''
 		);
 		const text = decodeURIComponent(response.headers.get('X-Response') || '');
-		const isRateLimited = response.headers.get('X-Rate-Limited') === 'true';
 
-		if (!response.ok || (!transcript && !isRateLimited) || !text || !response.body) {
+		if (!response.ok || !transcript || !text || !response.body) {
 			if (response.status === 429) {
 				toast.error('Too many requests. Please try again later.');
 			} else {
@@ -214,22 +344,6 @@ export default function Home() {
 			}
 
 			return prevMessages;
-		}
-
-		// Handle rate-limited responses
-		if (isRateLimited) {
-			const usageCount = parseInt(response.headers.get('X-Usage-Count') || '0');
-			const dailyLimit = parseInt(response.headers.get('X-Daily-Limit') || '10');
-			
-			// Show limit modal
-			setLimitModalData({ usageCount, dailyLimit });
-			setShowLimitModal(true);
-			
-			// Refresh usage indicator to show limit reached
-			setRefreshUsage(prev => prev + 1);
-			
-			// Also show a toast for immediate feedback
-			toast.info(`Daily limit reached (${usageCount}/${dailyLimit})`, { duration: 3000 });
 		}
 
 		const latency = Date.now() - submittedAt;
@@ -244,22 +358,9 @@ export default function Home() {
 		
 		setInput(transcript);
 
-		// Refresh usage count after successful interaction (unless rate limited)
-		if (!isRateLimited) {
-			setRefreshUsage(prev => prev + 1);
-		}
-
-		// For rate-limited responses, only show the assistant message
-		if (isRateLimited) {
-			return [
-				...prevMessages,
-				{
-					role: 'assistant',
-					content: text,
-					latency,
-				},
-			];
-		}
+		// After successful interaction, re-check if we should show feedback prompt
+		// (refreshes interaction count)
+		fetchSubscription();
 
 		// Normal flow: show both user and assistant messages
 		return [
@@ -285,24 +386,41 @@ export default function Home() {
 		startTransition(() => submit(input));
 	}
 
+	function handleFeedbackClose() {
+		setShowFeedback(false);
+		setFeedbackDismissed(true);
+		// Refresh subscription data (marks feedback as submitted)
+		fetchSubscription();
+	}
+
 	return (
 		<div>
-			{/* Usage Indicator in bottom-left */}
-			<UsageIndicator key={refreshUsage} />
+			{/* Paywall Modal — blocks all access if not subscribed */}
+			<PaywallModal
+				isOpen={showPaywall && !subscriptionLoading}
+				userEmail={session?.user?.email}
+				onRefreshStatus={fetchSubscription}
+			/>
 
-			{/* Profile button in very top-right of screen */}
-			<div className="fixed top-4 right-4 z-40">
+			{/* Feedback Modal — shown after 3-5 interactions for subscribers */}
+			<FeedbackModal
+				isOpen={showFeedback && !showPaywall}
+				onClose={handleFeedbackClose}
+			/>
+
+			{/* Profile button in very top-right of screen — z-10000 so it's always above the paywall */}
+			<div className="fixed top-4 right-4 z-10000">
 				<ProfileDropdown />
 			</div>
 
-			{/* Limit Modal */}
-			<LimitModal
-				isOpen={showLimitModal}
-				onClose={() => setShowLimitModal(false)}
-				usageCount={limitModalData.usageCount}
-				dailyLimit={limitModalData.dailyLimit}
-				userEmail={session?.user?.email}
-			/>
+			{/* Subscription status badge */}
+			{subscriptionData?.isSubscribed && (
+				<div className="fixed bottom-4 left-4 z-30">
+					<div className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs px-3 py-1.5 rounded-full font-medium">
+						Subscribed
+					</div>
+				</div>
+			)}
 			
 			{/* Made by Josef Büttgen in bottom-right */}
 			<div className="fixed bottom-4 right-4 z-10">

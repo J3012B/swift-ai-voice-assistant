@@ -15,5 +15,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/.*|favicon.ico|api/tele.*|api/.*|vercel\.json).*)'],
+  matcher: ['/((?!_next/.*|favicon.ico|api/tele.*|api/webhooks/.*|api/.*|vercel\.json).*)'],
 }; 

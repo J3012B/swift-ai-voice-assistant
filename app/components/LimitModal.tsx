@@ -1,6 +1,6 @@
 'use client';
 
-import { STRIPE_PAYMENT_LINK } from '../lib/constants';
+import { toast } from 'sonner';
 
 interface LimitModalProps {
   isOpen: boolean;
@@ -13,10 +13,18 @@ interface LimitModalProps {
 export default function LimitModal({ isOpen, onClose, usageCount, dailyLimit, userEmail }: LimitModalProps) {
   if (!isOpen) return null;
 
-  const handleUpgrade = () => {
-    const emailParam = userEmail ? `?prefilled_email=${encodeURIComponent(userEmail)}` : '';
-    const upgradeUrl = `${STRIPE_PAYMENT_LINK}${emailParam}`;
-    window.open(upgradeUrl, '_blank');
+  const handleUpgrade = async () => {
+    try {
+      const response = await fetch('/api/checkout', { method: 'POST' });
+      const data = await response.json();
+      if (response.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error('Failed to start checkout. Please try again.');
+      }
+    } catch {
+      toast.error('Something went wrong. Please try again.');
+    }
   };
 
   return (
