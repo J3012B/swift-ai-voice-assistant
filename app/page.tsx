@@ -29,6 +29,7 @@ type Message = {
 interface SubscriptionData {
 	isSubscribed: boolean;
 	status: string;
+	subscriptionEndDate: string | null;
 	interactionCount: number;
 	hasFeedback: boolean;
 	shouldShowFeedback: boolean;
@@ -410,7 +411,10 @@ export default function Home() {
 
 			{/* Profile button in very top-right of screen — z-10000 so it's always above the paywall */}
 			<div className="fixed top-4 right-4 z-10000">
-				<ProfileDropdown />
+				<ProfileDropdown
+					subscriptionStatus={subscriptionData?.status}
+					subscriptionEndDate={subscriptionData?.subscriptionEndDate}
+				/>
 			</div>
 
 			{/* Subscription status badge */}

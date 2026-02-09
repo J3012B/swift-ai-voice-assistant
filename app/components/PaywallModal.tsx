@@ -146,7 +146,11 @@ export default function PaywallModal({ isOpen, userEmail, onRefreshStatus }: Pay
                   Risk-Free: 14-day money-back guarantee
                 </p>
                 <p className="text-xs text-green-700 dark:text-green-400">
-                  Not satisfied? Get a full refund within 14 days, no questions asked.
+                  Not satisfied? Email{' '}
+                  <a href="mailto:josef@heliconsolutions.net?subject=Refund%20Request" className="underline font-medium">
+                    josef@heliconsolutions.net
+                  </a>
+                  {' '}within 14 days for a full refund, no questions asked.
                 </p>
               </div>
             </div>
@@ -195,7 +199,11 @@ export default function PaywallModal({ isOpen, userEmail, onRefreshStatus }: Pay
 
           {/* Small print */}
           <p className="text-xs text-neutral-400 dark:text-neutral-600 text-center mt-5">
-            Cancel anytime. 14-day money-back guarantee. Billed monthly.
+            Cancel anytime. 14-day money-back guarantee — email{' '}
+            <a href="mailto:josef@heliconsolutions.net?subject=Refund%20Request" className="underline hover:text-neutral-500 dark:hover:text-neutral-400">
+              josef@heliconsolutions.net
+            </a>
+            . Billed monthly.
           </p>
 
           {/* Sign out link */}
