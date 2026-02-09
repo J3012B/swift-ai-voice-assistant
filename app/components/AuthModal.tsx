@@ -29,11 +29,14 @@ export default function AuthModal() {
       setMessage(null);
       setIsInitializing(false);
 
-      // Check if this is a new signup by looking for new user data
+      // Check if this is a new OAuth signup (not email, which is handled in handleSubmit)
       // This helps catch OAuth signups that redirect back to the page
-      const isNewUser = session.user?.app_metadata?.provider && !sessionStorage.getItem('signup_notified_' + session.user.id);
+      const provider = session.user?.app_metadata?.provider;
+      const isNewOAuthUser = provider && 
+                            provider !== 'email' && 
+                            !sessionStorage.getItem('signup_notified_' + session.user.id);
       
-      if (isNewUser && session.user?.email) {
+      if (isNewOAuthUser && session.user?.email) {
         // Mark this user as notified to prevent duplicate notifications
         sessionStorage.setItem('signup_notified_' + session.user.id, 'true');
         
@@ -43,7 +46,7 @@ export default function AuthModal() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             email: session.user.email, 
-            method: session.user.app_metadata.provider === 'google' ? 'google' : 'email'
+            method: provider === 'google' ? 'google' : 'email'
           }),
         }).catch(error => {
           console.error('Failed to send OAuth signup notification:', error);
