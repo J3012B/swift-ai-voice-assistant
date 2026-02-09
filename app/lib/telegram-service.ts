@@ -36,7 +36,7 @@ class TelegramService {
 	}
 
 	private get baseUrl(): string {
-		return `https://api.telegram.org/bot${this.botToken}`;
+		return `https://api.telegram.org/${this.botToken}`;
 	}
 
 	/**

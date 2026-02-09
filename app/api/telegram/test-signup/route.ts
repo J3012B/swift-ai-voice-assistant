@@ -1,32 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { telegramErrorNotifier } from '../../../lib/telegram-error-notifier';
 
 export async function POST(_request: NextRequest) {
-	try {
-		// Test the signup notification with dummy data
-		const success = await telegramErrorNotifier.notifyUserSignup(
-			'test-user@example.com',
-			'email'
-		);
+	const debug: Record<string, unknown> = {};
 
-		if (success) {
+	try {
+		// 1. Check env vars (mask values for safety)
+		const botToken = process.env.TELEGRAM_ADMIN_BOT_TOKEN;
+		const userId = process.env.TELEGRAM_ADMIN_USER_ID;
+
+		debug.hasBotToken = Boolean(botToken);
+		debug.botTokenLength = botToken?.length ?? 0;
+		debug.botTokenPrefix = botToken?.slice(0, 8) + '...';
+		debug.hasUserId = Boolean(userId);
+		debug.userId = userId ?? '(not set)';
+
+		console.log('[telegram-debug] env check:', JSON.stringify(debug));
+
+		if (!botToken || !userId) {
 			return NextResponse.json(
-				{ success: true, message: 'Test signup notification sent successfully' },
+				{ success: false, error: 'Missing env vars', debug },
+				{ status: 400 }
+			);
+		}
+
+		// 2. Call Telegram getMe to verify the bot token works
+		const getMeUrl = `https://api.telegram.org/${botToken}/getMe`;
+		console.log('[telegram-debug] calling getMe...');
+		const getMeRes = await fetch(getMeUrl);
+		const getMeData = await getMeRes.json();
+		debug.getMe = getMeData;
+		console.log('[telegram-debug] getMe response:', JSON.stringify(getMeData));
+
+		if (!getMeData.ok) {
+			return NextResponse.json(
+				{ success: false, error: 'Bot token invalid - getMe failed', debug },
+				{ status: 400 }
+			);
+		}
+
+		// 3. Try sending a test message directly (bypass service classes)
+		const sendUrl = `https://api.telegram.org/${botToken}/sendMessage`;
+		const payload = {
+			chat_id: userId,
+			text: 'Test signup notification from debug endpoint',
+			parse_mode: 'HTML',
+		};
+
+		console.log('[telegram-debug] sending message to chat_id:', userId);
+		const sendRes = await fetch(sendUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload),
+		});
+		const sendData = await sendRes.json();
+		debug.sendMessage = sendData;
+		console.log('[telegram-debug] sendMessage response:', JSON.stringify(sendData));
+
+		if (sendData.ok) {
+			return NextResponse.json(
+				{ success: true, message: 'Test message sent!', debug },
 				{ status: 200 }
 			);
 		} else {
 			return NextResponse.json(
-				{ 
-					success: false, 
-					error: 'Failed to send test notification - check your TELEGRAM_ADMIN_BOT_TOKEN and TELEGRAM_ADMIN_USER_ID environment variables' 
-				},
+				{ success: false, error: 'sendMessage failed', debug },
 				{ status: 400 }
 			);
 		}
 	} catch (error) {
-		console.error('Test signup notification error:', error);
+		debug.exception = error instanceof Error ? error.message : String(error);
+		console.error('[telegram-debug] exception:', error);
 		return NextResponse.json(
-			{ success: false, error: 'Internal server error' },
+			{ success: false, error: 'Exception thrown', debug },
 			{ status: 500 }
 		);
 	}
