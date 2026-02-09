@@ -25,12 +25,18 @@ interface TelegramBot {
 }
 
 class TelegramService {
-	private botToken: string;
-	private baseUrl: string;
+	private explicitBotToken?: string;
 
 	constructor(botToken?: string) {
-		this.botToken = botToken || process.env.TELEGRAM_ADMIN_BOT_TOKEN || 'YOUR_BOT_TOKEN_HERE';
-		this.baseUrl = `https://api.telegram.org/bot${this.botToken}`;
+		this.explicitBotToken = botToken;
+	}
+
+	private get botToken(): string {
+		return this.explicitBotToken || process.env.TELEGRAM_ADMIN_BOT_TOKEN || '';
+	}
+
+	private get baseUrl(): string {
+		return `https://api.telegram.org/bot${this.botToken}`;
 	}
 
 	/**

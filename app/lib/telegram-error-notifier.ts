@@ -10,16 +10,12 @@ interface ErrorNotificationData {
 }
 
 class TelegramErrorNotifier {
-  private adminUserId: string | null;
-  private enabled: boolean;
+  private get adminUserId(): string | null {
+    return process.env.TELEGRAM_ADMIN_USER_ID || null;
+  }
 
-  constructor() {
-    this.adminUserId = process.env.TELEGRAM_ADMIN_USER_ID || null;
-    this.enabled = Boolean(this.adminUserId && process.env.TELEGRAM_ADMIN_BOT_TOKEN);
-    
-    if (!this.enabled) {
-      console.warn('Telegram error notifications disabled - missing TELEGRAM_ADMIN_USER_ID or TELEGRAM_ADMIN_BOT_TOKEN');
-    }
+  private get enabled(): boolean {
+    return Boolean(this.adminUserId && process.env.TELEGRAM_ADMIN_BOT_TOKEN);
   }
 
   /**
