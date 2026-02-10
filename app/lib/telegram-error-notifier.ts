@@ -71,6 +71,7 @@ class TelegramErrorNotifier {
     });
 
     let message = `
+🖥️ <b>TalkToYourComputer</b>
 ${serviceEmoji[data.service]} <b>${data.service} API Error</b>
 
 ❌ <b>Error:</b> ${this.escapeHtml(data.error)}
@@ -171,6 +172,7 @@ ${serviceEmoji[data.service]} <b>${data.service} API Error</b>
       const methodText = signupMethod === 'google' ? 'Google OAuth' : 'Email/Password';
 
       const message = `
+🖥️ <b>TalkToYourComputer</b>
 🎉 <b>New User Signup!</b>
 
 👤 <b>Email:</b> ${this.escapeHtml(email)}
