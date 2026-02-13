@@ -1,16 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { telegramErrorNotifier } from '../../../lib/telegram-error-notifier';
+import { db } from '../../../lib/db';
+import { users } from '../../../../drizzle/schema';
+import { eq } from 'drizzle-orm';
 
 const signupNotificationSchema = z.object({
 	email: z.string().email('Invalid email address'),
 	method: z.enum(['email', 'google']).optional().default('email'),
+	userId: z.string().uuid().optional(), // Optional userId for checking if user is new
 });
 
 export async function POST(request: NextRequest) {
 	try {
 		const body = await request.json();
 		const validatedData = signupNotificationSchema.parse(body);
+
+		// If userId is provided, check if user already exists in database
+		// If they exist, this is a sign-in, not a sign-up, so don't send notification
+		if (validatedData.userId) {
+			const existingUser = await db
+				.select({ id: users.id })
+				.from(users)
+				.where(eq(users.id, validatedData.userId))
+				.limit(1);
+
+			if (existingUser.length > 0) {
+				console.log(`User ${validatedData.userId} already exists. Skipping signup notification.`);
+				return NextResponse.json(
+					{ success: true, message: 'User already exists, notification skipped' },
+					{ status: 200 }
+				);
+			}
+		}
 
 		const success = await telegramErrorNotifier.notifyUserSignup(
 			validatedData.email,
