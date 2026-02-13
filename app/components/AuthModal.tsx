@@ -29,24 +29,21 @@ export default function AuthModal() {
       setMessage(null);
       setIsInitializing(false);
 
-      // Check if this is a new OAuth signup (not email, which is handled in handleSubmit)
-      // This helps catch OAuth signups that redirect back to the page
+      // Check if this is an OAuth signup (not email, which is handled in handleSubmit)
+      // Send notification with userId so the API can check if user already exists
       const provider = session.user?.app_metadata?.provider;
-      const isNewOAuthUser = provider && 
-                            provider !== 'email' && 
-                            !sessionStorage.getItem('signup_notified_' + session.user.id);
+      const isOAuthUser = provider && provider !== 'email';
       
-      if (isNewOAuthUser && session.user?.email) {
-        // Mark this user as notified to prevent duplicate notifications
-        sessionStorage.setItem('signup_notified_' + session.user.id, 'true');
-        
+      if (isOAuthUser && session.user?.email && session.user?.id) {
         // Send Telegram notification for OAuth signup
+        // The API will check if user exists and only send notification for new users
         fetch('/api/telegram/signup-notification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             email: session.user.email, 
-            method: provider === 'google' ? 'google' : 'email'
+            method: provider === 'google' ? 'google' : 'email',
+            userId: session.user.id // Pass userId to check if user is new
           }),
         }).catch(error => {
           console.error('Failed to send OAuth signup notification:', error);
