@@ -98,6 +98,11 @@ export default function PictureInPictureContent({
 	// Determine what to visualize
 	const shouldVisualize = status === 'speaking' || (status === 'idle' && userSpeaking);
 
+	// Ref callback — keeps canvasRef in sync whenever React mounts/unmounts the canvas
+	const canvasRefCallback = useCallback((el: HTMLCanvasElement | null) => {
+		canvasRef.current = el;
+	}, []);
+
 	// Audio visualization loop — works for both AI speaking and user speaking
 	useEffect(() => {
 		if (!shouldVisualize) {
@@ -114,9 +119,16 @@ export default function PictureInPictureContent({
 
 		function draw() {
 			const canvas = canvasRef.current;
-			if (!canvas) return;
+			if (!canvas) {
+				// Canvas not in DOM yet (e.g. transitioning from spinner) — retry next frame
+				animationRef.current = requestAnimationFrame(draw);
+				return;
+			}
 			const ctx = canvas.getContext('2d');
-			if (!ctx) return;
+			if (!ctx) {
+				animationRef.current = requestAnimationFrame(draw);
+				return;
+			}
 
 			const frequencyData = isMic ? getMicFreqRef.current() : getFreqRef.current();
 			ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -156,12 +168,6 @@ export default function PictureInPictureContent({
 		draw();
 		return () => cancelAnimationFrame(animationRef.current);
 	}, [shouldVisualize, status, userSpeaking]);
-
-	// Assign canvas ref after portal renders
-	useEffect(() => {
-		const canvas = pipWindow.document.getElementById('pip-visualizer') as HTMLCanvasElement | null;
-		canvasRef.current = canvas;
-	}, [pipWindow]);
 
 	// Determine status label
 	let statusLabel: string;
@@ -231,7 +237,7 @@ export default function PictureInPictureContent({
 						</svg>
 					</div>
 				) : (
-					<canvas id="pip-visualizer" width="280" height="80" />
+					<canvas ref={canvasRefCallback} width="280" height="80" />
 				)}
 			</div>
 
