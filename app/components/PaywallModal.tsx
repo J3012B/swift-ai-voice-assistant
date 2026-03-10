@@ -8,9 +8,11 @@ interface PaywallModalProps {
   isOpen: boolean;
   userEmail?: string;
   onRefreshStatus: () => void;
+  freeTierUsed?: number;
+  freeTierLimit?: number;
 }
 
-export default function PaywallModal({ isOpen, userEmail, onRefreshStatus }: PaywallModalProps) {
+export default function PaywallModal({ isOpen, userEmail, onRefreshStatus, freeTierUsed = 0, freeTierLimit = 5 }: PaywallModalProps) {
   const supabase = useSupabaseClient();
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -77,20 +79,27 @@ export default function PaywallModal({ isOpen, userEmail, onRefreshStatus }: Pay
         <div className="rounded-2xl p-8 shadow-2xl w-full max-w-lg mx-4 border border-neutral-200/50 dark:border-neutral-700/50 bg-white dark:bg-neutral-900">
           {/* Header */}
           <div className="text-center mb-6">
-            <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-linear-to-br from-blue-100 to-purple-100 dark:from-blue-900/40 dark:to-purple-900/40 flex items-center justify-center">
-              <svg className="w-10 h-10 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-              </svg>
+            {/* Free tier usage bar */}
+            <div className="mb-5">
+              <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2 mb-2">
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, (freeTierUsed / freeTierLimit) * 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                {freeTierUsed} of {freeTierLimit} free interactions used
+              </p>
             </div>
+
             <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
-              Get Unlimited Access
+              You&apos;ve used your free interactions
             </h1>
             <p className="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-1">
-              $9/month
+              $9/month to keep going
             </p>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
-              TalkToYourComputer is now subscription-only.<br />
-              Experience unlimited interactions and shape the product you use.
+              Liked what you experienced? Subscribe for unlimited access.
             </p>
           </div>
 

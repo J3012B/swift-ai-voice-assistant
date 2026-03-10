@@ -7,7 +7,8 @@ import { eq } from "drizzle-orm";
 
 export async function GET(_request: Request) {
 	// Get user session
-	const supabase = createRouteHandlerClient({ cookies });
+	const cookieStore = await cookies();
+	const supabase = createRouteHandlerClient({ cookies: () => cookieStore as any });
 	const { data: { session } } = await supabase.auth.getSession();
 	
 	if (!session?.user?.id) {

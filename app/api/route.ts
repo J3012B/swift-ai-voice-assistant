@@ -8,6 +8,7 @@ import { openAIService } from "../lib/openai-service";
 import { telegramErrorNotifier } from "../lib/telegram-error-notifier";
 import { interactionService } from "../lib/interaction-service";
 import { subscriptionService } from "../lib/subscription-service";
+import { FREE_TIER_LIMIT } from "../lib/constants";
 
 const schema = zfd.formData({
 	input: z.union([zfd.text(), zfd.file()]),
@@ -26,21 +27,33 @@ export async function POST(request: Request) {
 	const requestId = request.headers.get("x-vercel-id") || "local";
 	
 	// Get user session for interaction tracking
-	const supabase = createRouteHandlerClient({ cookies });
+	const cookieStore = await cookies();
+	const supabase = createRouteHandlerClient({ cookies: () => cookieStore as any });
 	const { data: { session } } = await supabase.auth.getSession();
 	
-	// Hard paywall: check subscription for authenticated users
+	// Check subscription or free tier for authenticated users
 	if (session?.user?.id) {
 		const isSubscribed = await subscriptionService.isSubscribed(session.user.id);
-		
+
 		if (!isSubscribed) {
-			// Track paywall hit analytics
-			await subscriptionService.trackEvent(session.user.id, "paywall_blocked");
-			
-			return new Response(
-				JSON.stringify({ error: "subscription_required", message: "An active subscription is required to use TalkToYourComputer." }),
-				{ status: 403, headers: { "Content-Type": "application/json", "X-Subscription-Required": "true" } }
-			);
+			// Check if user still has free tier interactions remaining
+			const totalInteractions = await interactionService.getUserInteractionCount(session.user.id);
+
+			if (totalInteractions >= FREE_TIER_LIMIT) {
+				// Free tier exhausted — track and block
+				await subscriptionService.trackEvent(session.user.id, "paywall_blocked");
+
+				return new Response(
+					JSON.stringify({
+						error: "subscription_required",
+						message: "You've used all your free interactions. Subscribe to keep using TalkToYourComputer.",
+						freeUsed: totalInteractions,
+						freeLimit: FREE_TIER_LIMIT,
+					}),
+					{ status: 403, headers: { "Content-Type": "application/json", "X-Subscription-Required": "true" } }
+				);
+			}
+			// else: still within free tier, allow the request through
 		}
 	} else {
 		// No session — user must be authenticated

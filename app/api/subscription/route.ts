@@ -5,10 +5,12 @@ import { interactionService } from "../../lib/interaction-service";
 import { db } from "../../lib/db";
 import { feedback } from "../../../drizzle/schema";
 import { eq, sql } from "drizzle-orm";
+import { FREE_TIER_LIMIT } from "../../lib/constants";
 
 export async function GET(_request: Request) {
 	// Get user session
-	const supabase = createRouteHandlerClient({ cookies });
+	const cookieStore = await cookies();
+	const supabase = createRouteHandlerClient({ cookies: () => cookieStore as any });
 	const { data: { session } } = await supabase.auth.getSession();
 
 	if (!session?.user?.id) {
@@ -28,6 +30,10 @@ export async function GET(_request: Request) {
 			.where(eq(feedback.userId, session.user.id));
 		const hasFeedback = Number(feedbackResult[0]?.count) > 0;
 
+		const freeTierUsed = interactionCount;
+		const freeTierRemaining = Math.max(0, FREE_TIER_LIMIT - freeTierUsed);
+		const freeTierExhausted = freeTierUsed >= FREE_TIER_LIMIT;
+
 		return new Response(JSON.stringify({
 			isSubscribed: subscriptionInfo.isSubscribed,
 			status: subscriptionInfo.status,
@@ -35,6 +41,11 @@ export async function GET(_request: Request) {
 			subscriptionEndDate: subscriptionInfo.subscriptionEndDate,
 			interactionCount,
 			hasFeedback,
+			// Free tier info
+			freeTierLimit: FREE_TIER_LIMIT,
+			freeTierUsed,
+			freeTierRemaining,
+			freeTierExhausted,
 			// Show feedback prompt after 3-5 interactions if no feedback yet
 			shouldShowFeedback: subscriptionInfo.isSubscribed && interactionCount >= 3 && interactionCount <= 10 && !hasFeedback,
 		}), {

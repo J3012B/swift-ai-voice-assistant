@@ -33,6 +33,10 @@ interface SubscriptionData {
 	interactionCount: number;
 	hasFeedback: boolean;
 	shouldShowFeedback: boolean;
+	freeTierLimit: number;
+	freeTierUsed: number;
+	freeTierRemaining: number;
+	freeTierExhausted: boolean;
 }
 
 export default function Home() {
@@ -82,7 +86,8 @@ export default function Home() {
 			if (response.ok) {
 				const data: SubscriptionData = await response.json();
 				setSubscriptionData(data);
-				setShowPaywall(!data.isSubscribed);
+				// Only show paywall if not subscribed AND free tier is exhausted
+				setShowPaywall(!data.isSubscribed && data.freeTierExhausted);
 
 				// Show feedback prompt if conditions are met and not already dismissed
 				if (data.shouldShowFeedback && !feedbackDismissed) {
@@ -170,6 +175,8 @@ export default function Home() {
 		},
 		positiveSpeechThreshold: 0.6,
 		minSpeechFrames: 4,
+		baseAssetPath: '/vad/',
+		onnxWASMBasePath: '/vad/',
 	});
 
 	useEffect(() => {
@@ -322,12 +329,14 @@ export default function Home() {
 			body: formData,
 		});
 
-		// Handle subscription required (hard paywall)
+		// Handle free tier exhausted / subscription required
 		if (response.status === 403) {
 			const data = await response.json().catch(() => null);
 			if (data?.error === 'subscription_required') {
 				setShowPaywall(true);
-				toast.error('A subscription is required to use TalkToYourComputer.');
+				// Refresh subscription data to get latest free tier counts
+				fetchSubscription();
+				toast.error('You\'ve used all your free interactions. Subscribe to continue.');
 				return prevMessages;
 			}
 		}
@@ -401,6 +410,8 @@ export default function Home() {
 				isOpen={showPaywall && !subscriptionLoading}
 				userEmail={session?.user?.email}
 				onRefreshStatus={fetchSubscription}
+				freeTierUsed={subscriptionData?.freeTierUsed ?? 0}
+				freeTierLimit={subscriptionData?.freeTierLimit ?? 5}
 			/>
 
 			{/* Feedback Modal — shown after 3-5 interactions for subscribers */}
@@ -417,14 +428,18 @@ export default function Home() {
 				/>
 			</div>
 
-			{/* Subscription status badge */}
-			{subscriptionData?.isSubscribed && (
-				<div className="fixed bottom-4 left-4 z-30">
+			{/* Subscription / free tier status badge */}
+			<div className="fixed bottom-4 left-4 z-30">
+				{subscriptionData?.isSubscribed ? (
 					<div className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs px-3 py-1.5 rounded-full font-medium">
 						Subscribed
 					</div>
-				</div>
-			)}
+				) : subscriptionData && !subscriptionData.freeTierExhausted ? (
+					<div className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs px-3 py-1.5 rounded-full font-medium">
+						{subscriptionData.freeTierRemaining} of {subscriptionData.freeTierLimit} free interactions left
+					</div>
+				) : null}
+			</div>
 			
 			{/* Made by Josef Büttgen in bottom-right */}
 			<div className="fixed bottom-4 right-4 z-10">
