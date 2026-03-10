@@ -91,10 +91,10 @@ export default function Home() {
 	}, [returnedFromCheckout, cancelledCheckout]);
 
 	// Fetch subscription status
-	const fetchSubscription = useCallback(async () => {
+	const fetchSubscription = useCallback(async (): Promise<SubscriptionData | null> => {
 		if (!session?.user?.id) {
 			setSubscriptionLoading(false);
-			return;
+			return null;
 		}
 
 		try {
@@ -109,12 +109,14 @@ export default function Home() {
 				if (data.shouldShowFeedback && !feedbackDismissed) {
 					setShowFeedback(true);
 				}
+				return data;
 			}
 		} catch (error) {
 			console.error('Failed to fetch subscription status:', error);
 		} finally {
 			setSubscriptionLoading(false);
 		}
+		return null;
 	}, [session?.user?.id, feedbackDismissed]);
 
 	useEffect(() => {
@@ -434,9 +436,21 @@ export default function Home() {
 		
 		setLastResponseText(text);
 
-		// After successful interaction, re-check if we should show feedback prompt
-		// (refreshes interaction count)
-		fetchSubscription();
+		// After successful interaction, check if free tier is now exhausted
+		fetchSubscription().then((data) => {
+			if (data && !data.isSubscribed && data.freeTierExhausted) {
+				// Proactively trigger quota exhausted flow after the last free interaction
+				player.stop();
+				vad.pause();
+				setQuotaExhausted(true);
+				quotaExhaustedRef.current = true;
+				playNotificationSound();
+				setTimeout(() => {
+					const audio = new Audio('/api/limit-reached-audio');
+					audio.play().catch(() => {});
+				}, 600);
+			}
+		});
 
 		// Normal flow: show both user and assistant messages
 		return [
@@ -623,6 +637,10 @@ export default function Home() {
 					usageLimit={subscriptionData?.freeTierLimit ?? null}
 					isSubscribed={subscriptionData?.isSubscribed ?? false}
 					onClose={pip.close}
+					onUpgrade={() => {
+						pip.close();
+						window.focus();
+					}}
 					pipWindow={pip.pipWindow}
 				/>
 			)}

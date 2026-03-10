@@ -17,6 +17,7 @@ interface PictureInPictureProps {
 	usageLimit: number | null;
 	isSubscribed: boolean;
 	onClose: () => void;
+	onUpgrade: () => void;
 }
 
 // Check if Document PiP API is available
@@ -83,6 +84,7 @@ export default function PictureInPictureContent({
 	usageLimit,
 	isSubscribed,
 	onClose,
+	onUpgrade,
 	pipWindow,
 }: PictureInPictureProps & { pipWindow: Window }) {
 	const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -191,11 +193,7 @@ export default function PictureInPictureContent({
 						<div className="pip-quota-title">Free quota used up</div>
 						<button
 							className="pip-quota-button"
-							onClick={() => {
-								// Focus the main browser window and close PiP
-								window.opener?.focus?.();
-								onClose();
-							}}
+							onClick={onUpgrade}
 						>
 							Upgrade to continue
 						</button>
