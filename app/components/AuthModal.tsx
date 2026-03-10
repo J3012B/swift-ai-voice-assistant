@@ -5,43 +5,41 @@ import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
 
 type AuthTab = 'signin' | 'signup' | 'forgot';
 
-export default function AuthModal() {
+interface AuthModalProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const session = useSession();
   const supabase = useSupabaseClient();
-  
-  const [activeTab, setActiveTab] = useState<AuthTab>('signin');
-  const [isInitializing, setIsInitializing] = useState(true);
+
+  const [activeTab, setActiveTab] = useState<AuthTab>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if we're still waiting for initial session
-    const timer = setTimeout(() => {
-      setIsInitializing(false);
-    }, 100); // Small delay to prevent flash
-
     if (session) {
       // Clear form states when authenticated
       setEmail('');
       setPassword('');
       setMessage(null);
-      setIsInitializing(false);
 
       // Check if this is an OAuth signup (not email, which is handled in handleSubmit)
       // Send notification with userId so the API can check if user already exists
       const provider = session.user?.app_metadata?.provider;
       const isOAuthUser = provider && provider !== 'email';
-      
+
       if (isOAuthUser && session.user?.email && session.user?.id) {
         // Send Telegram notification for OAuth signup
         // The API will check if user exists and only send notification for new users
         fetch('/api/telegram/signup-notification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            email: session.user.email, 
+          body: JSON.stringify({
+            email: session.user.email,
             method: provider === 'google' ? 'google' : 'email',
             userId: session.user.id // Pass userId to check if user is new
           }),
@@ -49,33 +47,14 @@ export default function AuthModal() {
           console.error('Failed to send OAuth signup notification:', error);
         });
       }
+
+      // Close modal on successful auth
+      onClose?.();
     }
+  }, [session, onClose]);
 
-    return () => clearTimeout(timer);
-  }, [session]);
-
-  // Don't render if user is authenticated
-  if (session) return null;
-  
-  // Show loading screen while initializing
-  if (isInitializing) {
-    return (
-      <div className="fixed inset-0 z-[9999] pointer-events-none">
-        {/* Backdrop layer */}
-        <div className="absolute inset-0 backdrop-blur-lg backdrop-brightness-90 backdrop-saturate-150" />
-
-        {/* Modal container */}
-        <div className="relative flex items-center justify-center min-h-screen pointer-events-auto">
-          <div className="rounded-2xl p-8 shadow-2xl w-full max-w-md mx-4 border border-neutral-200/50 dark:border-neutral-700/50">
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-900 dark:border-white mb-4"></div>
-              <p className="text-neutral-600 dark:text-neutral-400 text-sm">Loading...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Don't render if user is authenticated or modal is not open
+  if (session || !isOpen) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -228,13 +207,8 @@ export default function AuthModal() {
             Continue with Google
           </button>
 
-          <div className="relative mb-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-neutral-300 dark:border-neutral-600" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-3 bg-white dark:bg-neutral-900 text-neutral-500">or</span>
-            </div>
+          <div className="flex justify-center text-sm mb-4">
+            <span className="text-neutral-500">or</span>
           </div>
 
           {/* Email/Password Form */}

@@ -11,13 +11,17 @@ import {
 	useMemo,
 } from 'react';
 import { toast } from 'sonner';
-import { EnterIcon, LoadingIcon, ScreenShareIcon } from '@/lib/icons';
+import { LoadingIcon } from '@/lib/icons';
 import { usePlayer } from '@/lib/usePlayer';
+import { useMicAnalyser } from '@/lib/useMicAnalyser';
+import { playNotificationSound, playShutterSound } from '@/lib/playBuzz';
 import { track } from '@vercel/analytics';
 import { useMicVAD, utils } from '@ricky0123/vad-react';
 import ProfileDropdown from './components/ProfileDropdown';
 import PaywallModal from './components/PaywallModal';
 import FeedbackModal from './components/FeedbackModal';
+import PictureInPictureContent, { usePictureInPicture } from './components/PictureInPicture';
+import AuthModal from './components/AuthModal';
 import { useSession } from '@supabase/auth-helpers-react';
 
 type Message = {
@@ -41,17 +45,24 @@ interface SubscriptionData {
 
 export default function Home() {
 	const session = useSession();
-	const [input, setInput] = useState('');
 	const [isSharing, setIsSharing] = useState(false);
 	const [isPaused, setIsPaused] = useState(true);
 	const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+	const [showAuth, setShowAuth] = useState(false);
 	const [showPaywall, setShowPaywall] = useState(false);
 	const [showFeedback, setShowFeedback] = useState(false);
 	const [feedbackDismissed, setFeedbackDismissed] = useState(false);
 	const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
 	const [subscriptionLoading, setSubscriptionLoading] = useState(true);
-	const inputRef = useRef<HTMLInputElement>(null);
+	const [lastScreenshot, setLastScreenshot] = useState<string | null>(null);
+	const [lastResponseText, setLastResponseText] = useState<string | null>(null);
+	const [quotaExhausted, setQuotaExhausted] = useState(false);
+	const quotaExhaustedRef = useRef(false);
+	const [volume, setVolume] = useState(0);
 	const player = usePlayer();
+	const mic = useMicAnalyser();
+	const pip = usePictureInPicture();
+	const volumeAnimRef = useRef<number>(0);
 
 	// Detect ?subscribed=true or ?cancelled=true in the URL (return from Stripe Checkout)
 	const searchParams = useMemo(() => {
@@ -166,6 +177,7 @@ export default function Home() {
 	const vad = useMicVAD({
 		startOnLoad: false,
 		onSpeechEnd: (audio) => {
+			if (quotaExhaustedRef.current) return;
 			player.stop();
 			const wav = utils.encodeWAV(audio);
 			const blob = new Blob([wav], { type: 'audio/wav' });
@@ -179,23 +191,43 @@ export default function Home() {
 		onnxWASMBasePath: '/vad/',
 	});
 
+	// Volume tracking loop — reads mic or AI audio volume at ~60fps
+	// Checks actual audio data each frame instead of relying on stale state closures
 	useEffect(() => {
-		function keyDown(e: KeyboardEvent) {
-			if (e.key === 'Enter') return inputRef.current?.focus();
-			if (e.key === 'Escape') return setInput('');
+		if (isPaused) {
+			setVolume(0);
+			return;
 		}
 
-		window.addEventListener('keydown', keyDown);
-		return () => window.removeEventListener('keydown', keyDown);
-	});
+		function tick() {
+			// Try AI audio output first — if it has signal, use it
+			const freq = player.getFrequencyData();
+			if (freq) {
+				let sum = 0;
+				for (let i = 0; i < freq.length; i++) sum += freq[i];
+				const aiVol = sum / (freq.length * 255);
+				if (aiVol > 0.01) {
+					setVolume(aiVol);
+					volumeAnimRef.current = requestAnimationFrame(tick);
+					return;
+				}
+			}
+			// Fall back to mic volume
+			setVolume(mic.getVolume());
+			volumeAnimRef.current = requestAnimationFrame(tick);
+		}
 
-	// Handle pausing and resuming conversation
+		tick();
+		return () => cancelAnimationFrame(volumeAnimRef.current);
+	}, [isPaused, player, mic]);
+
+	// Handle stopping and resuming conversation
 	useEffect(() => {
 		if (isPaused) {
 			vad.pause();
 			player.stop();
 			if (!vad.loading && !vad.errored) {
-				toast.info('Conversation paused');
+				toast.info('Conversation stopped');
 			}
 		} else if (!vad.listening && !vad.loading && !vad.errored) {
 			vad.start();
@@ -203,9 +235,67 @@ export default function Home() {
 		}
 	}, [isPaused, vad, player]);
 
-	function togglePause() {
-		setIsPaused(!isPaused);
-		track(isPaused ? 'Start conversation' : 'Pause conversation');
+	async function startConversation() {
+		// Gate on authentication
+		if (!session) {
+			setShowAuth(true);
+			return;
+		}
+
+		// Step 1: Request screen sharing
+		try {
+			const mediaStream = await navigator.mediaDevices.getDisplayMedia({
+				video: true,
+				audio: true,
+			});
+
+			setIsSharing(true);
+			setScreenStream(mediaStream);
+
+			// Handle when user stops sharing via browser UI
+			mediaStream.getTracks().forEach(t => {
+				t.onended = () => {
+					stopConversation();
+				};
+			});
+		} catch {
+			// User cancelled screen share picker — don't start conversation
+			toast.info('Screen sharing is required to start a conversation.');
+			return;
+		}
+
+		// Step 2: Open PiP mini player (requires user gesture — we're still in the click handler)
+		if (pip.isSupported) {
+			await pip.open();
+		}
+
+		// Step 3: Start mic analyser for volume visualization
+		await mic.start();
+
+		// Step 4: Start listening
+		setIsPaused(false);
+		setQuotaExhausted(false);
+		quotaExhaustedRef.current = false;
+		track('Start conversation');
+	}
+
+	function stopConversation() {
+		// Stop screen sharing
+		if (screenStream) {
+			screenStream.getTracks().forEach(t => t.stop());
+		}
+		setIsSharing(false);
+		setScreenStream(null);
+
+		// Stop mic analyser
+		mic.stop();
+
+		// Close PiP
+		pip.close();
+
+		// Pause conversation
+		setIsPaused(true);
+		track('Pause conversation');
 	}
 
 	// Function to capture screenshot from screen sharing stream
@@ -252,51 +342,6 @@ export default function Home() {
 		}
 	}
 
-	async function startScreenShare() {
-		try {
-			const mediaStream = await navigator.mediaDevices.getDisplayMedia({
-				video: true,
-				audio: true,
-			});
-			
-			setIsSharing(true);
-			setScreenStream(mediaStream);
-			
-			// Handle when user stops sharing
-			mediaStream.getTracks().forEach(track => {
-				track.onended = () => {
-					setIsSharing(false);
-					setScreenStream(null);
-					toast.info('Screen sharing stopped');
-				};
-			});
-			
-			toast.success('Screen sharing started');
-			track('Screen sharing');
-		} catch (error) {
-			const errorHandler = {
-				handleError: (err: any) => {
-					console.error('Screen sharing error:', err);
-					toast.error('Failed to start screen sharing');
-					setIsSharing(false);
-					setScreenStream(null);
-				}
-			};
-			
-			errorHandler.handleError(error);
-		}
-	}
-
-	function stopScreenShare() {
-		if (isSharing && screenStream) {
-			// Stop all tracks in the stream
-			screenStream.getTracks().forEach(track => track.stop());
-			setIsSharing(false);
-			setScreenStream(null);
-			toast.info('Screen sharing stopped');
-		}
-	}
-
 	const [messages, submit, isPending] = useActionState<
 		Array<Message>,
 		string | Blob
@@ -315,6 +360,8 @@ export default function Home() {
 		const screenshot = await captureScreenshot();
 		if (screenshot) {
 			formData.append('screenshot', screenshot);
+			setLastScreenshot(screenshot);
+			playShutterSound();
 			track('Screenshot captured');
 		}
 
@@ -333,10 +380,24 @@ export default function Home() {
 		if (response.status === 403) {
 			const data = await response.json().catch(() => null);
 			if (data?.error === 'subscription_required') {
+				// Stop any playing audio immediately
+				player.stop();
+				// Pause VAD so it stops recording
+				vad.pause();
+				// Show quota exhausted in PiP and main UI
+				setQuotaExhausted(true);
+				quotaExhaustedRef.current = true;
 				setShowPaywall(true);
-				// Refresh subscription data to get latest free tier counts
 				fetchSubscription();
 				toast.error('You\'ve used all your free interactions. Subscribe to continue.');
+
+				// Play gentle chime, then the voice limit-reached message
+				playNotificationSound();
+				setTimeout(() => {
+					const audio = new Audio('/api/limit-reached-audio');
+					audio.play().catch(() => {});
+				}, 600);
+
 				return prevMessages;
 			}
 		}
@@ -366,7 +427,7 @@ export default function Home() {
 			});
 		}
 		
-		setInput(transcript);
+		setLastResponseText(text);
 
 		// After successful interaction, re-check if we should show feedback prompt
 		// (refreshes interaction count)
@@ -387,15 +448,6 @@ export default function Home() {
 		];
 	}, []);
 
-	function handleFormSubmit(e: React.FormEvent) {
-		e.preventDefault();
-		if (isPaused) {
-			// Auto-start conversation when user submits text while paused
-			setIsPaused(false);
-		}
-		startTransition(() => submit(input));
-	}
-
 	function handleFeedbackClose() {
 		setShowFeedback(false);
 		setFeedbackDismissed(true);
@@ -404,7 +456,13 @@ export default function Home() {
 	}
 
 	return (
-		<div>
+		<div className='flex flex-col items-center'>
+			{/* Auth Modal — shown when unauthenticated user tries to start */}
+			<AuthModal
+				isOpen={showAuth}
+				onClose={() => setShowAuth(false)}
+			/>
+
 			{/* Paywall Modal — blocks all access if not subscribed */}
 			<PaywallModal
 				isOpen={showPaywall && !subscriptionLoading}
@@ -449,60 +507,55 @@ export default function Home() {
 				</p>
 			</div>
 			
-			<div className='pb-4 min-h-28' />
-
-			<div className='flex items-center justify-center gap-2 w-full max-w-3xl mb-4'>
-				<button
-					type='button'
-					onClick={isSharing ? stopScreenShare : startScreenShare}
-					className={clsx(
-						'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors',
-						isSharing
-							? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-800/50'
-							: 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
-					)}
-				>
-					<ScreenShareIcon />
-					{isSharing ? 'Stop Sharing' : 'Share Screen'}
-				</button>
-				
-				<button
-					type='button'
-					onClick={togglePause}
-					className={clsx(
-						'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors',
-						isPaused
-							? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-800/50'
-							: 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
-					)}
-				>
-					{isPaused ? 'Start Conversation' : 'Pause Conversation'}
-				</button>
-			</div>
-
-			<form
-				className='rounded-full bg-neutral-200/80 dark:bg-neutral-800/80 flex items-center w-full max-w-3xl border border-transparent hover:border-neutral-300 focus-within:border-neutral-400 hover:focus-within:border-neutral-400 dark:hover:border-neutral-700 dark:focus-within:border-neutral-600 dark:hover:focus-within:border-neutral-600'
-				onSubmit={handleFormSubmit}
+			<button
+				type='button'
+				onClick={isPaused ? startConversation : stopConversation}
+				className={clsx(
+					'flex items-center justify-center gap-3 rounded-full text-lg font-semibold transition-all',
+					isPaused
+						? 'px-10 py-4 bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-105 dark:bg-green-600 dark:hover:bg-green-500'
+						: 'px-8 py-3 bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-800/50'
+				)}
 			>
-				<input
-					type='text'
-					className='bg-transparent focus:outline-hidden p-4 w-full placeholder:text-neutral-600 dark:placeholder:text-neutral-400'
-					required
-					placeholder='Ask me anything'
-					value={input}
-					onChange={(e) => setInput(e.target.value)}
-					ref={inputRef}
-				/>
+				{isPaused ? (
+					<>
+						<MicIcon />
+						Start Conversation
+					</>
+				) : (
+					<>
+						{isPending ? <LoadingIcon /> : <StopIcon />}
+						Stop Conversation
+					</>
+				)}
+			</button>
 
-				<button
-					type='submit'
-					className='p-4 text-neutral-700 hover:text-black dark:text-neutral-300 dark:hover:text-white'
-					disabled={isPending}
-					aria-label='Submit'
-				>
-					{isPending ? <LoadingIcon /> : <EnterIcon />}
-				</button>
-			</form>
+			{/* Status indicator when conversation is active */}
+			{!isPaused && (
+				<div className='flex items-center gap-2 mt-4'>
+					{isPending ? (
+						<>
+							<span className='inline-block size-2.5 rounded-full bg-amber-500 animate-pulse' />
+							<span className='text-sm text-amber-600 dark:text-amber-400 font-medium'>Thinking...</span>
+						</>
+					) : player.isPlaying ? (
+						<>
+							<span className='inline-block size-2.5 rounded-full bg-blue-500 animate-pulse' />
+							<span className='text-sm text-blue-600 dark:text-blue-400 font-medium'>AI is speaking</span>
+						</>
+					) : vad.userSpeaking ? (
+						<>
+							<span className='inline-block size-2.5 rounded-full bg-red-500 animate-pulse' />
+							<span className='text-sm text-red-600 dark:text-red-400 font-medium'>Recording...</span>
+						</>
+					) : (
+						<>
+							<span className='inline-block size-2.5 rounded-full bg-green-500' />
+							<span className='text-sm text-neutral-500 dark:text-neutral-400 font-medium'>Listening</span>
+						</>
+					)}
+				</div>
+			)}
 
 			<div className='text-neutral-400 dark:text-neutral-600 pt-4 text-center max-w-xl text-balance min-h-28 space-y-4'>
 				{messages.length > 0 && (
@@ -522,7 +575,7 @@ export default function Home() {
 						) : vad.errored ? (
 							<p>Failed to load speech detection.</p>
 						) : isPaused ? (
-							<p>Click &apos;Start Conversation&apos; to begin.</p>
+							<p>Share your screen and start talking to your computer.</p>
 						) : (
 							<p>Start talking to chat.</p>
 						)}
@@ -530,16 +583,44 @@ export default function Home() {
 				)}
 			</div>
 
+			{/* Volume-reactive background orb */}
 			<div
 				className={clsx(
-					'absolute size-36 blur-3xl rounded-full bg-linear-to-b from-red-200 to-red-400 dark:from-red-600 dark:to-red-800 -z-50 transition ease-in-out left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
-					{
-						'opacity-0': vad.loading || vad.errored || isPaused,
-						'opacity-30': !vad.loading && !vad.errored && !vad.userSpeaking && !isPaused,
-						'opacity-100 scale-110': vad.userSpeaking && !isPaused,
-					}
+					'absolute rounded-full bg-linear-to-b -z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-colors duration-300',
+					isPaused || vad.loading || vad.errored
+						? 'opacity-0'
+						: isPending
+						? 'from-amber-200 to-amber-400 dark:from-amber-600 dark:to-amber-800'
+						: player.isPlaying
+						? 'from-blue-200 to-blue-400 dark:from-blue-600 dark:to-blue-800'
+						: 'from-red-200 to-red-400 dark:from-red-600 dark:to-red-800'
 				)}
+				style={{
+					width: `${9 + volume * 12}rem`,
+					height: `${9 + volume * 12}rem`,
+					opacity: isPaused || vad.loading || vad.errored ? 0 : 0.15 + volume * 0.85,
+					filter: `blur(${2.5 + volume * 1.5}rem)`,
+					transition: 'width 0.1s ease-out, height 0.1s ease-out, opacity 0.1s ease-out, filter 0.1s ease-out',
+				}}
 			/>
+
+			{/* Picture-in-Picture floating window */}
+			{pip.isOpen && pip.pipWindow && (
+				<PictureInPictureContent
+					status={isPending ? 'thinking' : player.isPlaying ? 'speaking' : 'idle'}
+					userSpeaking={vad.userSpeaking}
+					quotaExhausted={quotaExhausted}
+					lastScreenshot={lastScreenshot}
+					lastResponseText={lastResponseText}
+					getFrequencyData={player.getFrequencyData}
+					getMicFrequencyData={mic.getFrequencyData}
+					usageUsed={subscriptionData?.freeTierUsed ?? null}
+					usageLimit={subscriptionData?.freeTierLimit ?? null}
+					isSubscribed={subscriptionData?.isSubscribed ?? false}
+					onClose={pip.close}
+					pipWindow={pip.pipWindow}
+				/>
+			)}
 		</div>
 	);
 }
@@ -552,3 +633,22 @@ function A(props: any) {
 		/>
 	);
 }
+
+function MicIcon() {
+	return (
+		<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+			<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+			<path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+			<line x1="12" x2="12" y1="19" y2="22" />
+		</svg>
+	);
+}
+
+function StopIcon() {
+	return (
+		<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+			<rect x="4" y="4" width="16" height="16" rx="2" />
+		</svg>
+	);
+}
+

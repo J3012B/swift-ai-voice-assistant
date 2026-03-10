@@ -5,7 +5,6 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/react";
 import Providers from "./providers";
-import AuthModal from "./components/AuthModal";
 
 export const metadata: Metadata = {
 	title: "Talk To Your Computer - Easiest Screen Sharing + AI Voice Chat",
@@ -72,7 +71,6 @@ export default function RootLayout({
 					<main className="flex flex-col items-center justify-center grow">
 						{children}
 					</main>
-					<AuthModal />
 				</Providers>
 
 				<Toaster richColors theme="system" />

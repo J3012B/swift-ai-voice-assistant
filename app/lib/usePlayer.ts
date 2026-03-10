@@ -4,10 +4,16 @@ export function usePlayer() {
 	const [isPlaying, setIsPlaying] = useState(false);
 	const audioContext = useRef<AudioContext | null>(null);
 	const source = useRef<AudioBufferSourceNode | null>(null);
+	const analyser = useRef<AnalyserNode | null>(null);
 
 	async function play(stream: ReadableStream, callback: () => void) {
 		stop();
 		audioContext.current = new AudioContext({ sampleRate: 24000 });
+
+		// Create analyser node for audio visualization
+		analyser.current = audioContext.current.createAnalyser();
+		analyser.current.fftSize = 256;
+		analyser.current.connect(audioContext.current.destination);
 
 		let nextStartTime = audioContext.current.currentTime;
 		const reader = stream.getReader();
@@ -35,7 +41,7 @@ export function usePlayer() {
 
 			source.current = audioContext.current.createBufferSource();
 			source.current.buffer = audioBuffer;
-			source.current.connect(audioContext.current.destination);
+			source.current.connect(analyser.current!);
 			source.current.start(nextStartTime);
 
 			nextStartTime += audioBuffer.duration;
@@ -53,12 +59,21 @@ export function usePlayer() {
 	function stop() {
 		audioContext.current?.close();
 		audioContext.current = null;
+		analyser.current = null;
 		setIsPlaying(false);
+	}
+
+	function getFrequencyData(): Uint8Array | null {
+		if (!analyser.current) return null;
+		const data = new Uint8Array(analyser.current.frequencyBinCount);
+		analyser.current.getByteFrequencyData(data);
+		return data;
 	}
 
 	return {
 		isPlaying,
 		play,
 		stop,
+		getFrequencyData,
 	};
 }
