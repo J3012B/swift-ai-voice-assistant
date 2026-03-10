@@ -63,6 +63,11 @@ export default function Home() {
 	const mic = useMicAnalyser();
 	const pip = usePictureInPicture();
 	const volumeAnimRef = useRef<number>(0);
+	// Stable refs for animation loops — avoids stale closures and effect restarts
+	const playerRef = useRef(player);
+	const micRef = useRef(mic);
+	playerRef.current = player;
+	micRef.current = mic;
 
 	// Detect ?subscribed=true or ?cancelled=true in the URL (return from Stripe Checkout)
 	const searchParams = useMemo(() => {
@@ -192,7 +197,7 @@ export default function Home() {
 	});
 
 	// Volume tracking loop — reads mic or AI audio volume at ~60fps
-	// Checks actual audio data each frame instead of relying on stale state closures
+	// Uses refs to avoid effect restarts from changing object references
 	useEffect(() => {
 		if (isPaused) {
 			setVolume(0);
@@ -201,7 +206,7 @@ export default function Home() {
 
 		function tick() {
 			// Try AI audio output first — if it has signal, use it
-			const freq = player.getFrequencyData();
+			const freq = playerRef.current.getFrequencyData();
 			if (freq) {
 				let sum = 0;
 				for (let i = 0; i < freq.length; i++) sum += freq[i];
@@ -213,13 +218,13 @@ export default function Home() {
 				}
 			}
 			// Fall back to mic volume
-			setVolume(mic.getVolume());
+			setVolume(micRef.current.getVolume());
 			volumeAnimRef.current = requestAnimationFrame(tick);
 		}
 
 		tick();
 		return () => cancelAnimationFrame(volumeAnimRef.current);
-	}, [isPaused, player, mic]);
+	}, [isPaused]);
 
 	// Handle stopping and resuming conversation
 	useEffect(() => {

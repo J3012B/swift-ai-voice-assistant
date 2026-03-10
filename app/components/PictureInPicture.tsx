@@ -87,6 +87,11 @@ export default function PictureInPictureContent({
 }: PictureInPictureProps & { pipWindow: Window }) {
 	const canvasRef = useRef<HTMLCanvasElement | null>(null);
 	const animationRef = useRef<number>(0);
+	// Stable refs for frequency data functions — avoids effect restarts from prop changes
+	const getFreqRef = useRef(getFrequencyData);
+	const getMicFreqRef = useRef(getMicFrequencyData);
+	getFreqRef.current = getFrequencyData;
+	getMicFreqRef.current = getMicFrequencyData;
 
 	// Determine what to visualize
 	const shouldVisualize = status === 'speaking' || (status === 'idle' && userSpeaking);
@@ -111,7 +116,7 @@ export default function PictureInPictureContent({
 			const ctx = canvas.getContext('2d');
 			if (!ctx) return;
 
-			const frequencyData = isMic ? getMicFrequencyData() : getFrequencyData();
+			const frequencyData = isMic ? getMicFreqRef.current() : getFreqRef.current();
 			ctx.clearRect(0, 0, canvas.width, canvas.height);
 
 			if (!frequencyData) {
@@ -148,7 +153,7 @@ export default function PictureInPictureContent({
 
 		draw();
 		return () => cancelAnimationFrame(animationRef.current);
-	}, [shouldVisualize, status, userSpeaking, getFrequencyData, getMicFrequencyData]);
+	}, [shouldVisualize, status, userSpeaking]);
 
 	// Assign canvas ref after portal renders
 	useEffect(() => {
