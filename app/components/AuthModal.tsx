@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
 
 type AuthTab = 'signin' | 'signup' | 'forgot';
@@ -20,38 +20,20 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  // Stable ref so the effect doesn't re-fire on every parent render
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Close modal when session is established.
+  // OAuth signup notifications are now handled server-side by /auth/callback.
   useEffect(() => {
     if (session) {
-      // Clear form states when authenticated
       setEmail('');
       setPassword('');
       setMessage(null);
-
-      // Check if this is an OAuth signup (not email, which is handled in handleSubmit)
-      // Send notification with userId so the API can check if user already exists
-      const provider = session.user?.app_metadata?.provider;
-      const isOAuthUser = provider && provider !== 'email';
-
-      if (isOAuthUser && session.user?.email && session.user?.id) {
-        // Send Telegram notification for OAuth signup
-        // The API will check if user exists and only send notification for new users
-        fetch('/api/telegram/signup-notification', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: session.user.email,
-            method: provider === 'google' ? 'google' : 'email',
-            userId: session.user.id // Pass userId to check if user is new
-          }),
-        }).catch(error => {
-          console.error('Failed to send OAuth signup notification:', error);
-        });
-      }
-
-      // Close modal on successful auth
-      onClose?.();
+      onCloseRef.current?.();
     }
-  }, [session, onClose]);
+  }, [session]);
 
   // Don't render if user is authenticated or modal is not open
   if (session || !isOpen) return null;
@@ -99,7 +81,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${location.origin}`,
+        redirectTo: `${location.origin}/auth/callback`,
       },
     });
   }
