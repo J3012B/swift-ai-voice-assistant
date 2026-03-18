@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { subscriptionService } from "../../lib/subscription-service";
 import { interactionService } from "../../lib/interaction-service";
 import { db } from "../../lib/db";
-import { feedback } from "../../../drizzle/schema";
+import { feedback, users } from "../../../drizzle/schema";
 import { eq, sql } from "drizzle-orm";
 import { FREE_TIER_LIMIT } from "../../lib/constants";
 
@@ -30,6 +30,14 @@ export async function GET(_request: Request) {
 			.where(eq(feedback.userId, session.user.id));
 		const hasFeedback = Number(feedbackResult[0]?.count) > 0;
 
+		// Check if user has already answered the onboarding question
+		const userRow = await db
+			.select({ useCase: users.useCase })
+			.from(users)
+			.where(eq(users.id, session.user.id))
+			.limit(1);
+		const hasOnboarding = !!userRow[0]?.useCase;
+
 		const freeTierUsed = interactionCount;
 		const freeTierRemaining = Math.max(0, FREE_TIER_LIMIT - freeTierUsed);
 		const freeTierExhausted = freeTierUsed >= FREE_TIER_LIMIT;
@@ -48,6 +56,8 @@ export async function GET(_request: Request) {
 			freeTierExhausted,
 			// Show feedback prompt after 3-5 interactions if no feedback yet
 			shouldShowFeedback: subscriptionInfo.isSubscribed && interactionCount >= 3 && interactionCount <= 10 && !hasFeedback,
+			// Show onboarding question after 1st interaction if not yet answered
+			shouldShowOnboarding: interactionCount >= 1 && !hasOnboarding,
 		}), {
 			headers: { "Content-Type": "application/json" },
 		});

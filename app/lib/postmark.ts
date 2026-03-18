@@ -48,6 +48,41 @@ Josef`;
 	}
 }
 
+export async function sendOnboardingNotificationEmail(userEmail: string, useCase: string): Promise<boolean> {
+	if (!POSTMARK_API_TOKEN || !FROM_EMAIL) {
+		console.error('Postmark env vars not set');
+		return false;
+	}
+
+	try {
+		const res = await fetch('https://api.postmarkapp.com/email', {
+			method: 'POST',
+			headers: {
+				'Accept': 'application/json',
+				'Content-Type': 'application/json',
+				'X-Postmark-Server-Token': POSTMARK_API_TOKEN,
+			},
+			body: JSON.stringify({
+				From: FROM_EMAIL,
+				To: 'josef@heliconsolutions.net',
+				Subject: `New use case response from ${userEmail}`,
+				TextBody: `User: ${userEmail}\n\nWhat they want to use it for:\n\n${useCase}`,
+				MessageStream: 'outbound',
+			}),
+		});
+
+		if (!res.ok) {
+			console.error('Postmark onboarding notification error:', await res.text());
+			return false;
+		}
+
+		return true;
+	} catch (err) {
+		console.error('Failed to send onboarding notification email:', err);
+		return false;
+	}
+}
+
 export async function sendQuotaExceededEmail(toEmail: string, freeLimit: number): Promise<boolean> {
 	if (!POSTMARK_API_TOKEN || !FROM_EMAIL) {
 		console.error('Postmark env vars not set (POSTMARK_SERVER_API_TOKEN, POSTMARK_FROM_EMAIL)');

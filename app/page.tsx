@@ -20,6 +20,7 @@ import { useMicVAD, utils } from '@ricky0123/vad-react';
 import ProfileDropdown from './components/ProfileDropdown';
 import PaywallModal from './components/PaywallModal';
 import FeedbackModal from './components/FeedbackModal';
+import OnboardingModal from './components/OnboardingModal';
 import PictureInPictureContent, { usePictureInPicture } from './components/PictureInPicture';
 import AuthModal from './components/AuthModal';
 import { useSession } from '@supabase/auth-helpers-react';
@@ -37,6 +38,7 @@ interface SubscriptionData {
 	interactionCount: number;
 	hasFeedback: boolean;
 	shouldShowFeedback: boolean;
+	shouldShowOnboarding: boolean;
 	freeTierLimit: number;
 	freeTierUsed: number;
 	freeTierRemaining: number;
@@ -52,6 +54,7 @@ export default function Home() {
 	const [showPaywall, setShowPaywall] = useState(false);
 	const [showFeedback, setShowFeedback] = useState(false);
 	const [feedbackDismissed, setFeedbackDismissed] = useState(false);
+	const [showOnboarding, setShowOnboarding] = useState(false);
 	const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
 	const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 	const [lastScreenshot, setLastScreenshot] = useState<string | null>(null);
@@ -108,6 +111,11 @@ export default function Home() {
 				// Show feedback prompt if conditions are met and not already dismissed
 				if (data.shouldShowFeedback && !feedbackDismissed) {
 					setShowFeedback(true);
+				}
+
+				// Show onboarding question after 1st interaction
+				if (data.shouldShowOnboarding) {
+					setShowOnboarding(true);
 				}
 				return data;
 			}
@@ -495,6 +503,12 @@ export default function Home() {
 			<FeedbackModal
 				isOpen={showFeedback && !showPaywall}
 				onClose={handleFeedbackClose}
+			/>
+
+			{/* Onboarding Modal — shown after 1st interaction */}
+			<OnboardingModal
+				isOpen={showOnboarding && !showPaywall && !showFeedback}
+				onClose={() => setShowOnboarding(false)}
 			/>
 
 			{/* Profile button in very top-right of screen — z-10000 so it's always above the paywall */}

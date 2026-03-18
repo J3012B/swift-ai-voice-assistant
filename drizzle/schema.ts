@@ -20,6 +20,9 @@ export const users = pgTable("users", {
 		.notNull(),
 	disableUsageLimit: boolean("disable_usage_limit"),
 
+	// Onboarding: what they plan to use the product for
+	useCase: text("use_case"),
+
 	// Stripe subscription fields
 	stripeCustomerId: text("stripe_customer_id"),
 	stripeSubscriptionId: text("stripe_subscription_id"),
