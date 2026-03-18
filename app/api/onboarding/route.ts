@@ -28,9 +28,11 @@ export async function POST(request: NextRequest) {
 			.set({ useCase: useCase.trim() })
 			.where(eq(users.id, session.user.id));
 
-		// Forward to Josef (fire-and-forget)
-		sendOnboardingNotificationEmail(session.user.email || 'unknown', useCase.trim())
-			.catch(err => console.error('Failed to send onboarding notification:', err));
+		// Forward to Josef (fire-and-forget) — skip if user dismissed without answering
+		if (useCase.trim() !== 'skipped') {
+			sendOnboardingNotificationEmail(session.user.email || 'unknown', useCase.trim())
+				.catch(err => console.error('Failed to send onboarding notification:', err));
+		}
 
 		return NextResponse.json({ success: true });
 	} catch (error) {

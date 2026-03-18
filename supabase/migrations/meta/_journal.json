@@ -43,6 +43,13 @@
       "when": 1770617625067,
       "tag": "0005_bent_randall",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773819872912,
+      "tag": "0006_steady_dreaming_celestial",
+      "breakpoints": true
     }
   ]
 }

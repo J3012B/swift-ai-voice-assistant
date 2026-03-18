@@ -1,10 +1,8 @@
 {
-  "id": "f1dfcbd1-473d-45d7-8e82-668c35c144f7",
-  "prevId": "5d233441-66de-4b1e-8ddb-10da673c1556",
-  "version": "5",
-  "dialect": "pg",
+  "version": "7",
+  "dialect": "postgresql",
   "tables": {
-    "users": {
+    "public.users": {
       "name": "users",
       "schema": "",
       "columns": {
@@ -39,22 +37,25 @@
         "users_id_users_id_fk": {
           "name": "users_id_users_id_fk",
           "tableFrom": "users",
-          "tableTo": "users",
-          "schemaTo": "auth",
           "columnsFrom": [
             "id"
           ],
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "isRLSEnabled": false,
+      "checkConstraints": {}
     },
-    "interactions": {
+    "public.interactions": {
       "name": "interactions",
       "schema": "",
       "columns": {
@@ -84,26 +85,35 @@
         "interactions_user_id_users_id_fk": {
           "name": "interactions_user_id_users_id_fk",
           "tableFrom": "interactions",
-          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
+          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "isRLSEnabled": false,
+      "checkConstraints": {}
     }
   },
   "enums": {},
   "schemas": {},
   "_meta": {
-    "columns": {},
     "schemas": {},
-    "tables": {}
-  }
+    "tables": {},
+    "columns": {}
+  },
+  "id": "f1dfcbd1-473d-45d7-8e82-668c35c144f7",
+  "prevId": "5d233441-66de-4b1e-8ddb-10da673c1556",
+  "sequences": {},
+  "policies": {},
+  "views": {},
+  "roles": {}
 }

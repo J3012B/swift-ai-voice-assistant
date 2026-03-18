@@ -14,6 +14,16 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
 
   if (!isOpen) return null;
 
+  async function handleSkip() {
+    // Save "skipped" so the modal never reappears
+    await fetch('/api/onboarding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ useCase: 'skipped' }),
+    }).catch(() => {});
+    onClose();
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!useCase.trim()) return;
@@ -90,7 +100,8 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
               </button>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleSkip}
+                disabled={submitting}
                 className="w-full text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 py-2 transition-colors"
               >
                 Skip
