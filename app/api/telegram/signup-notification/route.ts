@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { telegramErrorNotifier } from '../../../lib/telegram-error-notifier';
+import { sendWelcomeEmail } from '../../../lib/postmark';
 import { db } from '../../../lib/db';
 import { users } from '../../../../drizzle/schema';
 import { eq } from 'drizzle-orm';
@@ -38,6 +39,10 @@ export async function POST(request: NextRequest) {
 			validatedData.email,
 			validatedData.method
 		);
+
+		// Fire-and-forget welcome email
+		sendWelcomeEmail(validatedData.email)
+			.catch(err => console.error('Failed to send welcome email:', err));
 
 		if (success) {
 			return NextResponse.json(

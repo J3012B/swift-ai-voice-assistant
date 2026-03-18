@@ -3,7 +3,7 @@
  */
 
 // Subscription price
-export const SUBSCRIPTION_PRICE = 9; // $9/month
+export const SUBSCRIPTION_PRICE = 19; // $19/month
 
 // Free tier: number of interactions before paywall
 export const FREE_TIER_LIMIT = 5;

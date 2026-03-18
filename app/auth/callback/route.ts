@@ -2,6 +2,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { telegramErrorNotifier } from '../../lib/telegram-error-notifier';
+import { sendWelcomeEmail } from '../../lib/postmark';
 
 export async function GET(request: Request) {
 	const requestUrl = new URL(request.url);
@@ -25,10 +26,11 @@ export async function GET(request: Request) {
 					const method = provider === 'google' ? 'google' : 'email';
 
 					// Fire-and-forget — don't block the redirect on notification delivery
-					telegramErrorNotifier.notifyUserSignup(
-						session.user.email || 'unknown',
-						method
-					).catch(err => console.error('Failed to send signup notification:', err));
+					const userEmail = session.user.email || 'unknown';
+					telegramErrorNotifier.notifyUserSignup(userEmail, method)
+						.catch(err => console.error('Failed to send signup notification:', err));
+					sendWelcomeEmail(userEmail)
+						.catch(err => console.error('Failed to send welcome email:', err));
 				}
 			}
 		} catch (error) {

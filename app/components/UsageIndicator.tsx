@@ -74,7 +74,7 @@ export default function UsageIndicator({ onUpgrade }: UsageIndicatorProps) {
             Subscribe to access
           </span>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            $9/month &middot; 14-day money-back guarantee
+            $19/month &middot; 14-day money-back guarantee
           </p>
         </div>
 

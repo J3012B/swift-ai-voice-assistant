@@ -8,6 +8,7 @@ import { openAIService } from "../lib/openai-service";
 import { telegramErrorNotifier } from "../lib/telegram-error-notifier";
 import { interactionService } from "../lib/interaction-service";
 import { subscriptionService } from "../lib/subscription-service";
+import { sendQuotaExceededEmail } from "../lib/postmark";
 import { FREE_TIER_LIMIT } from "../lib/constants";
 
 const schema = zfd.formData({
@@ -42,6 +43,12 @@ export async function POST(request: Request) {
 			if (totalInteractions >= FREE_TIER_LIMIT) {
 				// Free tier exhausted — track and block
 				await subscriptionService.trackEvent(session.user.id, "paywall_blocked");
+
+				// Send quota exceeded email only on the exact threshold hit (not on repeat blocks)
+				if (totalInteractions === FREE_TIER_LIMIT && session.user.email) {
+					sendQuotaExceededEmail(session.user.email, FREE_TIER_LIMIT)
+						.catch(err => console.error('Failed to send quota exceeded email:', err));
+				}
 
 				return new Response(
 					JSON.stringify({

@@ -96,7 +96,7 @@ export default function PaywallModal({ isOpen, userEmail, onRefreshStatus, freeT
               You&apos;ve used your free interactions
             </h1>
             <p className="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-1">
-              $9/month to keep going
+              $19/month to keep going
             </p>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
               Liked what you experienced? Subscribe for unlimited access.
@@ -173,7 +173,7 @@ export default function PaywallModal({ isOpen, userEmail, onRefreshStatus, freeT
               onClick={handleSubscribe}
               disabled={isLoading}
             >
-              {isLoading ? 'Redirecting to checkout...' : 'Subscribe Now — $9/month'}
+              {isLoading ? 'Redirecting to checkout...' : 'Subscribe Now — $19/month'}
             </button>
 
             {/* Already subscribed? Refresh status */}

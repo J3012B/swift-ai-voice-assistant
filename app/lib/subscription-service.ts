@@ -178,7 +178,7 @@ class SubscriptionService {
 			if (user[0]) {
 				await this.trackEvent(user[0].id, "subscription_created", {
 					stripeSubscriptionId,
-					amount: 900, // $9.00 in cents
+					amount: 1900, // $19.00 in cents
 				});
 			}
 		} catch (error) {
