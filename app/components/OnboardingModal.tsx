@@ -70,7 +70,7 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
               Quick question from Josef
             </h2>
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              I built this — I'm curious what brought you here.
+              I built this — I&apos;m curious what brought you here.
             </p>
           </div>
 
