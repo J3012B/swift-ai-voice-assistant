@@ -7,6 +7,7 @@ import { Analytics } from "@vercel/analytics/react";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
+	metadataBase: new URL('https://www.talktoyour.computer'),
 	title: "Talk To Your Computer - Easiest Screen Sharing + AI Voice Chat",
 	description:
 		"The easiest way to share your screen and talk with AI at the same time. Voice-powered AI assistant that can see and understand everything on your screen.",
@@ -17,18 +18,23 @@ export const metadata: Metadata = {
 			"The easiest way to share your screen and talk with AI at the same time. Voice-powered AI assistant that can see and understand everything on your screen.",
 		type: "website",
 		siteName: "Talk To Your Computer",
+		images: [{ url: '/opengraph-image.png', width: 1200, height: 630 }],
 	},
 	twitter: {
 		card: "summary_large_image",
 		title: "Talk To Your Computer - Easiest Screen Sharing + AI Voice Chat",
 		description:
 			"The easiest way to share your screen and talk with AI at the same time. Voice-powered AI assistant that can see and understand everything on your screen.",
+		images: ['/opengraph-image.png'],
 	},
 	robots: {
 		index: true,
 		follow: true,
 	},
 	authors: [{ name: "Josef Büttgen" }],
+	alternates: {
+		canonical: 'https://www.talktoyour.computer',
+	},
 };
 
 const geist = Geist({
