@@ -166,7 +166,7 @@ export async function POST(request: Request) {
 				"X-API-Key": process.env.CARTESIA_API_KEY!,
 			},
 			body: JSON.stringify({
-				model_id: "sonic-english",
+				model_id: "sonic-turbo",
 				transcript: response,
 				voice: {
 					mode: "id",

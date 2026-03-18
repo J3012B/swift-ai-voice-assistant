@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import Groq from 'groq-sdk';
 
 /**
  * OpenAI API service
@@ -6,10 +7,14 @@ import OpenAI from 'openai';
  */
 class OpenAIService {
 	private client: OpenAI;
+	private groq: Groq;
 
 	constructor() {
 		this.client = new OpenAI({
 			apiKey: process.env.OPENAI_API_KEY,
+		});
+		this.groq = new Groq({
+			apiKey: process.env.GROQ_API_KEY,
 		});
 	}
 
@@ -22,7 +27,6 @@ class OpenAIService {
 		try {
 			const response = await this.client.responses.create({
 				model: "gpt-4o",
-				tools: [{ type: "web_search_preview" }],
 				input: messages as any,
 				max_output_tokens: options?.max_output_tokens,
 			});
@@ -35,18 +39,18 @@ class OpenAIService {
 	}
 
 	/**
-	 * Get a transcription from audio
+	 * Get a transcription from audio using Groq Whisper (faster than OpenAI Whisper-1)
 	 */
 	async getTranscription(file: File) {
 		try {
-			const transcription = await this.client.audio.transcriptions.create({
+			const transcription = await this.groq.audio.transcriptions.create({
 				file: file,
-				model: 'whisper-1',
+				model: 'whisper-large-v3-turbo',
 			});
 
 			return transcription.text;
 		} catch (error) {
-			console.error('OpenAI transcription error:', error);
+			console.error('Groq transcription error:', error);
 			throw error;
 		}
 	}
