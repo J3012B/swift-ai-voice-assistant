@@ -1,1 +1,1 @@
-ALTER TABLE "users" ADD COLUMN "use_case" text;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "use_case" text;
