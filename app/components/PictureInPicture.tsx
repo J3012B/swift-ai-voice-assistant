@@ -8,6 +8,8 @@ type AIStatus = 'idle' | 'thinking' | 'speaking';
 interface PictureInPictureProps {
 	status: AIStatus;
 	userSpeaking: boolean;
+	isMuted: boolean;
+	onToggleMute: () => void;
 	quotaExhausted: boolean;
 	lastScreenshot: string | null;
 	lastResponseText: string | null;
@@ -75,6 +77,8 @@ export function usePictureInPicture() {
 export default function PictureInPictureContent({
 	status,
 	userSpeaking,
+	isMuted,
+	onToggleMute,
 	quotaExhausted,
 	lastScreenshot,
 	lastResponseText,
@@ -175,6 +179,9 @@ export default function PictureInPictureContent({
 	if (quotaExhausted) {
 		statusLabel = 'Quota used up';
 		statusClass = 'quota';
+	} else if (isMuted) {
+		statusLabel = 'Paused';
+		statusClass = 'paused';
 	} else if (status === 'thinking') {
 		statusLabel = 'Thinking...';
 		statusClass = 'thinking';
@@ -214,17 +221,35 @@ export default function PictureInPictureContent({
 					<span className="pip-status-text">{statusLabel}</span>
 				</div>
 
-				{!isSubscribed && usageUsed !== null && usageLimit !== null && (
-					<div className="pip-usage">
-						<div className="pip-usage-text">{usageUsed}/{usageLimit}</div>
-						<div className="pip-usage-bar">
-							<div
-								className="pip-usage-fill"
-								style={{ width: `${Math.min(100, (usageUsed / usageLimit) * 100)}%` }}
-							/>
+				<div className="pip-status-right">
+					{!quotaExhausted && (
+						<button className="pip-mute-button" onClick={onToggleMute}>
+							{isMuted ? (
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+									<polygon points="5,3 19,12 5,21" />
+								</svg>
+							) : (
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+									<rect x="6" y="4" width="4" height="16" rx="1" />
+									<rect x="14" y="4" width="4" height="16" rx="1" />
+								</svg>
+							)}
+							{isMuted ? 'Resume' : 'Pause'}
+						</button>
+					)}
+
+					{!isSubscribed && usageUsed !== null && usageLimit !== null && (
+						<div className="pip-usage">
+							<div className="pip-usage-text">{usageUsed}/{usageLimit}</div>
+							<div className="pip-usage-bar">
+								<div
+									className="pip-usage-fill"
+									style={{ width: `${Math.min(100, (usageUsed / usageLimit) * 100)}%` }}
+								/>
+							</div>
 						</div>
-					</div>
-				)}
+					)}
+				</div>
 			</div>
 
 			{/* Audio visualizer / Thinking spinner */}
@@ -315,6 +340,44 @@ function getPipStyles(): string {
 			background: #1a1a1a;
 		}
 
+		/* Status right side (mute button + usage) */
+		.pip-status-right {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+		}
+
+		/* Pause/resume button in PiP */
+		.pip-mute-button {
+			display: flex;
+			align-items: center;
+			gap: 5px;
+			padding: 5px 10px;
+			border-radius: 20px;
+			border: 1px solid #e5e5e5;
+			background: transparent;
+			color: #525252;
+			font-size: 12px;
+			font-weight: 500;
+			cursor: pointer;
+			white-space: nowrap;
+		}
+
+		.pip-mute-button:hover {
+			border-color: #a3a3a3;
+			color: #1a1a1a;
+		}
+
+		.dark .pip-mute-button {
+			border-color: #333333;
+			color: #a3a3a3;
+		}
+
+		.dark .pip-mute-button:hover {
+			border-color: #525252;
+			color: #e5e5e5;
+		}
+
 		/* Usage indicator */
 		.pip-usage {
 			display: flex;
@@ -383,6 +446,10 @@ function getPipStyles(): string {
 		.pip-status-dot.recording {
 			background: #ef4444;
 			animation: pulse 0.6s ease-in-out infinite;
+		}
+
+		.pip-status-dot.paused {
+			background: #a3a3a3;
 		}
 
 		.pip-status-dot.quota {

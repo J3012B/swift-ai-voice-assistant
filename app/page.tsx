@@ -49,6 +49,7 @@ export default function Home() {
 	const session = useSession();
 	const [isSharing, setIsSharing] = useState(false);
 	const [isPaused, setIsPaused] = useState(true);
+	const [isMuted, setIsMuted] = useState(false);
 	const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
 	const [showAuth, setShowAuth] = useState(false);
 	const [showPaywall, setShowPaywall] = useState(false);
@@ -294,6 +295,16 @@ export default function Home() {
 		track('Start conversation');
 	}
 
+	function toggleMute() {
+		if (isMuted) {
+			vad.start();
+			setIsMuted(false);
+		} else {
+			vad.pause();
+			setIsMuted(true);
+		}
+	}
+
 	function stopConversation() {
 		// Stop screen sharing
 		if (screenStream) {
@@ -308,7 +319,8 @@ export default function Home() {
 		// Close PiP
 		pip.close();
 
-		// Pause conversation
+		// Reset mute and pause conversation
+		setIsMuted(false);
 		setIsPaused(true);
 		track('Pause conversation');
 	}
@@ -540,29 +552,42 @@ export default function Home() {
 					<A href='https://x.com/josefbuettgen'>Josef Büttgen</A>
 				</p>
 			</div>
-			
-			<button
-				type='button'
-				onClick={isPaused ? startConversation : stopConversation}
-				className={clsx(
-					'flex items-center justify-center gap-3 rounded-full text-lg font-semibold transition-all',
-					isPaused
-						? 'px-10 py-4 bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-105 dark:bg-green-600 dark:hover:bg-green-500'
-						: 'px-8 py-3 bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-800/50'
+
+			<div className='flex items-center gap-3'>
+				{/* Pause / Resume — only visible when conversation is active */}
+				{!isPaused && (
+					<button
+						type='button'
+						onClick={toggleMute}
+						className='flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-600 hover:text-neutral-900 dark:hover:text-white transition-all'
+					>
+						{isMuted ? <><PlayIcon /> Resume</> : <><PauseIcon /> Pause</>}
+					</button>
 				)}
-			>
-				{isPaused ? (
-					<>
-						<MicIcon />
-						Start Conversation
-					</>
-				) : (
-					<>
-						{isPending ? <LoadingIcon /> : <StopIcon />}
-						Stop Conversation
-					</>
-				)}
-			</button>
+
+				<button
+					type='button'
+					onClick={isPaused ? startConversation : stopConversation}
+					className={clsx(
+						'flex items-center justify-center gap-3 rounded-full text-lg font-semibold transition-all',
+						isPaused
+							? 'px-10 py-4 bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-105 dark:bg-green-600 dark:hover:bg-green-500'
+							: 'px-8 py-3 bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-800/50'
+					)}
+				>
+					{isPaused ? (
+						<>
+							<MicIcon />
+							Start Conversation
+						</>
+					) : (
+						<>
+							{isPending ? <LoadingIcon /> : <StopIcon />}
+							Stop
+						</>
+					)}
+				</button>
+			</div>
 
 			{/* Status indicator when conversation is active */}
 			{!isPaused && (
@@ -576,6 +601,11 @@ export default function Home() {
 						<>
 							<span className='inline-block size-2.5 rounded-full bg-blue-500 animate-pulse' />
 							<span className='text-sm text-blue-600 dark:text-blue-400 font-medium'>AI is speaking</span>
+						</>
+					) : isMuted ? (
+						<>
+							<span className='inline-block size-2.5 rounded-full bg-neutral-400 dark:bg-neutral-600' />
+							<span className='text-sm text-neutral-500 dark:text-neutral-400 font-medium'>Paused</span>
 						</>
 					) : vad.userSpeaking ? (
 						<>
@@ -643,6 +673,8 @@ export default function Home() {
 				<PictureInPictureContent
 					status={isPending ? 'thinking' : player.isPlaying ? 'speaking' : 'idle'}
 					userSpeaking={vad.userSpeaking}
+					isMuted={isMuted}
+					onToggleMute={toggleMute}
 					quotaExhausted={quotaExhausted}
 					lastScreenshot={lastScreenshot}
 					lastResponseText={lastResponseText}
@@ -686,6 +718,23 @@ function StopIcon() {
 	return (
 		<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
 			<rect x="4" y="4" width="16" height="16" rx="2" />
+		</svg>
+	);
+}
+
+function PauseIcon() {
+	return (
+		<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+			<rect x="6" y="4" width="4" height="16" rx="1" />
+			<rect x="14" y="4" width="4" height="16" rx="1" />
+		</svg>
+	);
+}
+
+function PlayIcon() {
+	return (
+		<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+			<polygon points="5,3 19,12 5,21" />
 		</svg>
 	);
 }
