@@ -57,37 +57,6 @@ export default async function Image({
             marginBottom: 48,
           }}
         >
-          {/* TTYC box */}
-          <div
-            style={{
-              width: 120,
-              height: 120,
-              borderRadius: 24,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "rgba(255,255,255,0.05)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {/* Mic icon in green */}
-            <svg width="60" height="60" viewBox="0 0 24 24" fill="#22c55e">
-              <path d="M12 1a4 4 0 0 1 4 4v5a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-6 9a6 6 0 0 0 12 0h2a8 8 0 0 1-7 7.93V20h3v2H8v-2h3v-2.07A8 8 0 0 1 4 10h2z" />
-            </svg>
-          </div>
-
-          {/* VS badge */}
-          <div
-            style={{
-              fontSize: 36,
-              fontWeight: 700,
-              color: "rgba(255,255,255,0.25)",
-              letterSpacing: "0.05em",
-            }}
-          >
-            vs
-          </div>
-
           {/* Competitor box */}
           <div
             style={{
@@ -111,6 +80,37 @@ export default async function Image({
             >
               {competitorName.slice(0, 2).toUpperCase()}
             </span>
+          </div>
+
+          {/* VS badge */}
+          <div
+            style={{
+              fontSize: 36,
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.25)",
+              letterSpacing: "0.05em",
+            }}
+          >
+            vs
+          </div>
+
+          {/* TTYC box */}
+          <div
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 24,
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(255,255,255,0.05)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {/* Mic icon in green */}
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="#22c55e">
+              <path d="M12 1a4 4 0 0 1 4 4v5a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-6 9a6 6 0 0 0 12 0h2a8 8 0 0 1-7 7.93V20h3v2H8v-2h3v-2.07A8 8 0 0 1 4 10h2z" />
+            </svg>
           </div>
         </div>
 
