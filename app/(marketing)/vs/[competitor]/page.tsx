@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCompetitor, getAllCompetitorSlugs } from "@/lib/content/competitors";
+import VsHero from "@/components/VsHero";
 
 type Props = {
   params: Promise<{ competitor: string }>;
@@ -52,6 +53,9 @@ export default async function CompetitorPage({ params }: Props) {
       >
         ← Home
       </Link>
+
+      {/* Logo lockup */}
+      <VsHero competitorName={data.name} competitorLogoPath={data.logoPath} />
 
       {/* Hero */}
       <div className="mb-12">

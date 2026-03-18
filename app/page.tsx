@@ -535,7 +535,6 @@ export default function Home() {
 			{/* Footer links + Made by in bottom-right */}
 			<div className="fixed bottom-4 right-4 z-10 flex items-center gap-4">
 				<A href='/blog'>Blog</A>
-				<A href='/vs/superwhisper'>Compare</A>
 				<p className="text-xs text-neutral-400 dark:text-neutral-600">
 					Made by{' '}
 					<A href='https://x.com/josefbuettgen'>Josef Büttgen</A>

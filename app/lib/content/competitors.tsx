@@ -19,6 +19,8 @@ export type Competitor = {
   description: string;
   heroHeadline: string;
   heroSubheadline: string;
+  /** Path to competitor logo SVG in /public/logos/ */
+  logoPath: string;
   features: FeatureComparison[];
   sections: CompetitorSection[];
   content: React.ReactNode;
@@ -382,6 +384,7 @@ export const competitors: Competitor[] = [
     heroHeadline: "SuperWhisper vs Talk To Your Computer",
     heroSubheadline:
       "SuperWhisper transcribes your speech. Talk To Your Computer has a full conversation with you — and sees your screen while doing it.",
+    logoPath: "/logos/superwhisper.svg",
     features: [
       { feature: "Sees your screen", ttyc: true, competitor: false },
       { feature: "Voice conversations (two-way)", ttyc: true, competitor: false },
@@ -404,6 +407,7 @@ export const competitors: Competitor[] = [
     heroHeadline: "Wispr Flow vs Talk To Your Computer",
     heroSubheadline:
       "Wispr Flow uses AI to polish your dictated text. Talk To Your Computer uses AI to have a real conversation with you — while seeing what's on your screen.",
+    logoPath: "/logos/wispr-flow.svg",
     features: [
       { feature: "Sees your screen", ttyc: true, competitor: false },
       { feature: "Voice conversations (two-way)", ttyc: true, competitor: false },
@@ -426,6 +430,7 @@ export const competitors: Competitor[] = [
     heroHeadline: "Raycast AI vs Talk To Your Computer",
     heroSubheadline:
       "Raycast AI is the best keyboard-driven AI launcher on Mac. Talk To Your Computer is the best voice assistant that can see your screen.",
+    logoPath: "/logos/raycast.svg",
     features: [
       { feature: "Sees your screen", ttyc: true, competitor: false },
       { feature: "Voice-first interface", ttyc: true, competitor: false },
@@ -448,6 +453,7 @@ export const competitors: Competitor[] = [
     heroHeadline: "ChatGPT vs Talk To Your Computer",
     heroSubheadline:
       "ChatGPT is a powerful AI you visit. Talk To Your Computer is an AI that runs alongside your work — voice-first, screen-aware, always watching.",
+    logoPath: "/logos/openai.svg",
     features: [
       { feature: "Sees your screen", ttyc: true, competitor: true },
       { feature: "Voice-first interface", ttyc: true, competitor: false },
@@ -470,6 +476,7 @@ export const competitors: Competitor[] = [
     heroHeadline: "Siri vs Talk To Your Computer",
     heroSubheadline:
       "Siri is built into every Mac and great for system control. Talk To Your Computer is a screen-aware AI that helps you with the actual work on your screen.",
+    logoPath: "/logos/apple.svg",
     features: [
       { feature: "Sees your screen", ttyc: true, competitor: false },
       { feature: "LLM-powered deep conversations", ttyc: true, competitor: false },
@@ -492,6 +499,7 @@ export const competitors: Competitor[] = [
     heroHeadline: "GitHub Copilot vs Talk To Your Computer",
     heroSubheadline:
       "GitHub Copilot writes code. Talk To Your Computer helps you think through your entire screen — terminal, browser, editor, and all — by voice.",
+    logoPath: "/logos/github.svg",
     features: [
       { feature: "Sees your entire screen", ttyc: true, competitor: false },
       { feature: "Voice-first interface", ttyc: true, competitor: false },
