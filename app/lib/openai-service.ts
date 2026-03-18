@@ -22,16 +22,14 @@ class OpenAIService {
 	 * Get a chat completion from OpenAI
 	 */
 	async getChatCompletion(messages: any[], options?: { max_output_tokens?: number }) {
-		// console.log('messages', JSON.stringify(messages, null, 2));
-
 		try {
-			const response = await this.client.responses.create({
+			const response = await this.client.chat.completions.create({
 				model: "gpt-4o",
-				input: messages as any,
-				max_output_tokens: options?.max_output_tokens,
+				messages: messages as any,
+				max_tokens: options?.max_output_tokens,
 			});
 
-			return response.output_text;
+			return response.choices[0].message.content ?? "";
 		} catch (error) {
 			console.error('OpenAI API error:', error);
 			throw error;

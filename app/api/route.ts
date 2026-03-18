@@ -112,7 +112,7 @@ export async function POST(request: Request) {
 		role: "user",
 		content: [
 			{
-				type: "input_text",
+				type: "text",
 				text: transcript,
 			},
 		],
@@ -121,8 +121,8 @@ export async function POST(request: Request) {
 	// Add screenshot to the message content if it exists
 	if (data.screenshot) {
 		userMessage.content.push({
-			type: "input_image",
-			image_url: data.screenshot,
+			type: "image_url",
+			image_url: { url: data.screenshot },
 		});
 	}
 
