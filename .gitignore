@@ -40,6 +40,8 @@ next-env.d.ts
 # files copied from npm modules
 public/
 !public/logo.png
+!public/screenshots/
+!public/screenshots/**
 
 screenshot.png
 screenshot.jpg

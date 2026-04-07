@@ -30,6 +30,9 @@ export const allTools: ToolPage[] = [
         <p>
           DaVinci Resolve is not one application. It is six applications duct-taped together behind a row of page tabs at the bottom of your screen. The <strong className="text-neutral-900 dark:text-white">Cut page</strong> and the <strong className="text-neutral-900 dark:text-white">Edit page</strong> both edit video but behave differently. The <strong className="text-neutral-900 dark:text-white">Color page</strong> uses a node-based grading system that looks nothing like the layer-based approach in Premiere or Final Cut. The <strong className="text-neutral-900 dark:text-white">Fusion page</strong> is a full compositing environment with its own logic. Most beginners accidentally end up on the wrong page and cannot figure out why the tools they just used have disappeared.
         </p>
+        <div className="rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 my-2">
+          <img src="/screenshots/davinci-pages.png" alt="DaVinci Resolve showing the page tab bar at the bottom — Media, Cut, Edit, Fusion, Color, Fairlight, Deliver" className="w-full" />
+        </div>
         <p>
           The inspector panel changes its contents depending on which page you are on. Timeline behaviors differ between Cut and Edit. The render settings page — Deliver — has so many codec and format options that most people just pick the first preset and hope for the best. Even basic operations like changing the timeline frame rate after you have started a project require hunting through menus that are not where you would expect them to be.
         </p>
@@ -64,6 +67,9 @@ export const allTools: ToolPage[] = [
             <p>
               The Color page is where DaVinci Resolve&apos;s reputation was built, and it is also where most beginners hit a wall. The node-based grading system is fundamentally different from the adjustment-layer approach you may know from Premiere or Lightroom. Each node is a processing step, and the order matters. A serial node after a parallel node produces a different result than the reverse. None of this is explained on screen.
             </p>
+            <div className="rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 my-2">
+              <img src="/screenshots/davinci-color.png" alt="DaVinci Resolve Color page showing the node graph, color wheels, and clip filmstrip with footage loaded" className="w-full" />
+            </div>
             <p>
               With Talk To Your Computer watching your Color page, you can ask things like <em>&quot;what does this node do?&quot;</em> or <em>&quot;why does my footage look washed out after adding this second node?&quot;</em> and get a direct answer based on your actual node tree. It turns the most intimidating page in the application into a conversation.
             </p>
@@ -77,6 +83,9 @@ export const allTools: ToolPage[] = [
             <p>
               The Deliver page has dozens of presets and hundreds of individual settings. H.264 or H.265? Which profile level? CBR or VBR? What data rate for YouTube? Most people choose &quot;YouTube&quot; from the preset list and accept whatever comes out, even when the file size is three times what it should be or the quality is noticeably soft.
             </p>
+            <div className="rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 my-2">
+              <img src="/screenshots/davinci-deliver.png" alt="DaVinci Resolve Deliver page showing render settings, H.264 codec options, and the render queue" className="w-full" />
+            </div>
             <p>
               Ask Talk To Your Computer while you are on the Deliver page: <em>&quot;what settings should I use to upload this to Instagram at the best quality?&quot;</em> and get specific codec, resolution, and bitrate recommendations based on what it can see in your project settings. No more exporting three times to get it right.
             </p>
