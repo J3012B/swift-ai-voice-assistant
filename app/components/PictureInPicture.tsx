@@ -10,6 +10,8 @@ interface PictureInPictureProps {
 	userSpeaking: boolean;
 	isMuted: boolean;
 	onToggleMute: () => void;
+	onStartRecording: () => void;
+	onStopRecording: () => void;
 	quotaExhausted: boolean;
 	lastScreenshot: string | null;
 	lastResponseText: string | null;
@@ -79,6 +81,8 @@ export default function PictureInPictureContent({
 	userSpeaking,
 	isMuted,
 	onToggleMute,
+	onStartRecording,
+	onStopRecording,
 	quotaExhausted,
 	lastScreenshot,
 	lastResponseText,
@@ -192,7 +196,7 @@ export default function PictureInPictureContent({
 		statusLabel = 'Recording...';
 		statusClass = 'recording';
 	} else {
-		statusLabel = 'Listening';
+		statusLabel = 'Ready';
 		statusClass = 'idle';
 	}
 
@@ -251,6 +255,23 @@ export default function PictureInPictureContent({
 					)}
 				</div>
 			</div>
+
+			{/* Hold-to-speak mic button */}
+			{!quotaExhausted && !isMuted && (
+				<button
+					className={`pip-mic-button ${userSpeaking ? 'active' : ''}`}
+					onPointerDown={onStartRecording}
+					onPointerUp={onStopRecording}
+					onPointerLeave={onStopRecording}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+						<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+						<path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+						<line x1="12" x2="12" y1="19" y2="22" />
+					</svg>
+					{userSpeaking ? 'Recording...' : 'Hold to speak'}
+				</button>
+			)}
 
 			{/* Audio visualizer / Thinking spinner */}
 			<div className="pip-visualizer-area">
@@ -622,6 +643,61 @@ function getPipStyles(): string {
 
 		.pip-quota-button:hover {
 			background: #b91c1c;
+		}
+
+		/* Hold-to-speak mic button */
+		.pip-mic-button {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+			width: 100%;
+			padding: 14px;
+			border-radius: 12px;
+			border: 2px solid #e5e5e5;
+			background: #fafafa;
+			color: #525252;
+			font-size: 14px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.15s ease;
+			user-select: none;
+			-webkit-user-select: none;
+			touch-action: none;
+		}
+
+		.pip-mic-button:hover {
+			border-color: #a3a3a3;
+			background: #f0f0f0;
+		}
+
+		.pip-mic-button.active {
+			border-color: #ef4444;
+			background: #fef2f2;
+			color: #dc2626;
+			animation: mic-pulse 1.5s ease-in-out infinite;
+		}
+
+		@keyframes mic-pulse {
+			0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
+			50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+		}
+
+		.dark .pip-mic-button {
+			border-color: #333333;
+			background: #111111;
+			color: #a3a3a3;
+		}
+
+		.dark .pip-mic-button:hover {
+			border-color: #525252;
+			background: #1a1a1a;
+		}
+
+		.dark .pip-mic-button.active {
+			border-color: #dc2626;
+			background: #1c0a0a;
+			color: #f87171;
 		}
 	`;
 }

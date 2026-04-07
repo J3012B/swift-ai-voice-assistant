@@ -244,11 +244,8 @@ async function getTranscript(input: string | File, requestId?: string) {
 	if (typeof input === "string") return input;
 
 	try {
-		// Create a File object from the Blob which is compatible with OpenAI's API
-		const file = new File([input], "audio.wav", { type: "audio/wav" });
-
 		// Use our OpenAI service instead of Groq
-		const text = await openAIService.getTranscription(file);
+		const text = await openAIService.getTranscription(input);
 
 		return text.trim() || null;
 	} catch (error) {

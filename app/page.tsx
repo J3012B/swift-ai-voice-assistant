@@ -16,7 +16,6 @@ import { usePlayer } from '@/lib/usePlayer';
 import { useMicAnalyser } from '@/lib/useMicAnalyser';
 import { playNotificationSound, playShutterSound } from '@/lib/playBuzz';
 import { track } from '@vercel/analytics';
-import { useMicVAD, utils } from '@ricky0123/vad-react';
 import ProfileDropdown from './components/ProfileDropdown';
 import PaywallModal from './components/PaywallModal';
 import FeedbackModal from './components/FeedbackModal';
@@ -50,6 +49,7 @@ export default function Home() {
 	const [isSharing, setIsSharing] = useState(false);
 	const [isPaused, setIsPaused] = useState(true);
 	const [isMuted, setIsMuted] = useState(false);
+	const [isRecording, setIsRecording] = useState(false);
 	const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
 	const [showAuth, setShowAuth] = useState(false);
 	const [showPaywall, setShowPaywall] = useState(false);
@@ -67,6 +67,10 @@ export default function Home() {
 	const mic = useMicAnalyser();
 	const pip = usePictureInPicture();
 	const volumeAnimRef = useRef<number>(0);
+	const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+	const audioChunksRef = useRef<Blob[]>([]);
+	const pttTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const pttActiveRef = useRef(false);
 	// Stable refs for animation loops — avoids stale closures and effect restarts
 	const playerRef = useRef(player);
 	const micRef = useRef(mic);
@@ -190,23 +194,6 @@ export default function Home() {
 		}
 	}, [showPaywall, session?.user?.id]);
 
-	const vad = useMicVAD({
-		startOnLoad: false,
-		onSpeechEnd: (audio) => {
-			if (quotaExhaustedRef.current) return;
-			player.stop();
-			const wav = utils.encodeWAV(audio);
-			const blob = new Blob([wav], { type: 'audio/wav' });
-			startTransition(() => submit(blob));
-			const isFirefox = navigator.userAgent.includes('Firefox');
-			if (isFirefox) vad.pause();
-		},
-		positiveSpeechThreshold: 0.6,
-		minSpeechFrames: 4,
-		baseAssetPath: '/vad/',
-		onnxWASMBasePath: '/vad/',
-	});
-
 	// Volume tracking loop — reads mic or AI audio volume at ~60fps
 	// Uses refs to avoid effect restarts from changing object references
 	useEffect(() => {
@@ -237,19 +224,128 @@ export default function Home() {
 		return () => cancelAnimationFrame(volumeAnimRef.current);
 	}, [isPaused]);
 
-	// Handle stopping and resuming conversation
+	// Handle stopping conversation
 	useEffect(() => {
 		if (isPaused) {
-			vad.pause();
 			player.stop();
-			if (!vad.loading && !vad.errored) {
-				toast.info('Conversation stopped');
-			}
-		} else if (!vad.listening && !vad.loading && !vad.errored) {
-			vad.start();
-			toast.success('Conversation started');
+			stopActiveRecording();
 		}
-	}, [isPaused, vad, player]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isPaused]);
+
+	// Stop any active MediaRecorder without submitting (used when conversation ends)
+	function stopActiveRecording() {
+		// Clear any pending PTT hold timer
+		if (pttTimerRef.current) {
+			clearTimeout(pttTimerRef.current);
+			pttTimerRef.current = null;
+		}
+		pttActiveRef.current = false;
+
+		const recorder = mediaRecorderRef.current;
+		if (!recorder || recorder.state === 'inactive') return;
+		recorder.onstop = () => {
+			recorder.stream.getTracks().forEach(t => t.stop());
+			mediaRecorderRef.current = null;
+		};
+		recorder.stop();
+		setIsRecording(false);
+	}
+
+	// Press-and-hold to speak: right Option key (Alt, location = right)
+	const startRecording = useCallback(async () => {
+		if (quotaExhaustedRef.current || isMuted) return;
+		if (mediaRecorderRef.current) return; // already recording
+
+		try {
+			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+				? 'audio/webm;codecs=opus'
+				: MediaRecorder.isTypeSupported('audio/mp4')
+				? 'audio/mp4'
+				: '';
+			const recorder = mimeType
+				? new MediaRecorder(stream, { mimeType })
+				: new MediaRecorder(stream);
+
+			audioChunksRef.current = [];
+			recorder.ondataavailable = (e) => {
+				if (e.data.size > 0) audioChunksRef.current.push(e.data);
+			};
+			recorder.start();
+			mediaRecorderRef.current = recorder;
+			player.stop();
+			setIsRecording(true);
+		} catch {
+			toast.error('Microphone access denied.');
+		}
+	}, [isMuted, player]);
+
+	const stopRecording = useCallback(() => {
+		const recorder = mediaRecorderRef.current;
+		if (!recorder || recorder.state === 'inactive') return;
+
+		recorder.onstop = () => {
+			const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType });
+			recorder.stream.getTracks().forEach(t => t.stop());
+			mediaRecorderRef.current = null;
+			if (blob.size > 0) {
+				startTransition(() => submit(blob));
+			}
+		};
+		recorder.stop();
+		setIsRecording(false);
+	// submit is stable from useActionState
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	// Keyboard PTT: hold V key to speak (short taps still type normally)
+	useEffect(() => {
+		if (isPaused) return;
+
+		const HOLD_THRESHOLD_MS = 200;
+
+		function handleKeyDown(e: KeyboardEvent) {
+			if (e.key !== 'v' && e.key !== 'V') return;
+			if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+			// Don't intercept if user is typing in an input/textarea/contenteditable
+			const tag = (e.target as HTMLElement)?.tagName;
+			if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
+
+			// Start a timer — if key is still held after threshold, activate PTT
+			if (!pttTimerRef.current && !pttActiveRef.current) {
+				pttTimerRef.current = setTimeout(() => {
+					pttTimerRef.current = null;
+					pttActiveRef.current = true;
+					startRecording();
+				}, HOLD_THRESHOLD_MS);
+			}
+		}
+
+		function handleKeyUp(e: KeyboardEvent) {
+			if (e.key !== 'v' && e.key !== 'V') return;
+
+			// If timer is still pending, it was a short tap — let it type normally
+			if (pttTimerRef.current) {
+				clearTimeout(pttTimerRef.current);
+				pttTimerRef.current = null;
+				return;
+			}
+
+			// If PTT was active, stop recording and submit
+			if (pttActiveRef.current) {
+				pttActiveRef.current = false;
+				stopRecording();
+			}
+		}
+
+		window.addEventListener('keydown', handleKeyDown);
+		window.addEventListener('keyup', handleKeyUp);
+		return () => {
+			window.removeEventListener('keydown', handleKeyDown);
+			window.removeEventListener('keyup', handleKeyUp);
+		};
+	}, [isPaused, startRecording, stopRecording]);
 
 	async function startConversation() {
 		// Gate on authentication
@@ -292,15 +388,15 @@ export default function Home() {
 		setIsPaused(false);
 		setQuotaExhausted(false);
 		quotaExhaustedRef.current = false;
+		toast.success('Conversation started — hold V to speak');
 		track('Start conversation');
 	}
 
 	function toggleMute() {
 		if (isMuted) {
-			vad.start();
 			setIsMuted(false);
 		} else {
-			vad.pause();
+			stopActiveRecording();
 			setIsMuted(true);
 		}
 	}
@@ -322,40 +418,41 @@ export default function Home() {
 		// Reset mute and pause conversation
 		setIsMuted(false);
 		setIsPaused(true);
+		toast.info('Conversation stopped');
 		track('Pause conversation');
 	}
 
 	// Function to capture screenshot from screen sharing stream
 	async function captureScreenshot(): Promise<string | null> {
 		if (!isSharing || !screenStream) return null;
-		
+
 		try {
 			// Create a video element to capture the stream
 			const video = document.createElement('video');
 			video.srcObject = screenStream;
 			video.autoplay = true;
-			
+
 			// Wait for video to be ready
 			await new Promise(resolve => {
 				video.onloadedmetadata = resolve;
 				// If already loaded, resolve immediately
 				if (video.readyState >= 2) resolve(null);
 			});
-			
+
 			// Create a canvas to draw the video frame
 			const canvas = document.createElement('canvas');
 			canvas.width = video.videoWidth;
 			canvas.height = video.videoHeight;
-			
+
 			// Draw the current video frame to the canvas
 			const ctx = canvas.getContext('2d');
 			if (!ctx) return null;
-			
+
 			ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-			
+
 			// Convert canvas to data URL (base64 image)
 			const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-			
+
 			return dataUrl;
 		} catch (error) {
 			const errorHandler = {
@@ -364,7 +461,7 @@ export default function Home() {
 					return null;
 				}
 			};
-			
+
 			return errorHandler.handleError(error);
 		}
 	}
@@ -379,7 +476,9 @@ export default function Home() {
 			formData.append('input', data);
 			track('Text input');
 		} else {
-			formData.append('input', data, 'audio.wav');
+			// Preserve actual mime type so the server passes the right format to Whisper
+			const ext = data.type.includes('mp4') ? 'mp4' : data.type.includes('ogg') ? 'ogg' : 'webm';
+			formData.append('input', data, `audio.${ext}`);
 			track('Speech input');
 		}
 
@@ -409,8 +508,6 @@ export default function Home() {
 			if (data?.error === 'subscription_required') {
 				// Stop any playing audio immediately
 				player.stop();
-				// Pause VAD so it stops recording
-				vad.pause();
 				// Show quota exhausted in PiP and main UI
 				setQuotaExhausted(true);
 				quotaExhaustedRef.current = true;
@@ -445,15 +542,12 @@ export default function Home() {
 		}
 
 		const latency = Date.now() - submittedAt;
-		
+
 		// Only play audio if conversation is not paused
 		if (!isPaused) {
-			player.play(response.body, () => {
-				const isFirefox = navigator.userAgent.includes('Firefox');
-				if (isFirefox) vad.start();
-			});
+			player.play(response.body, () => {});
 		}
-		
+
 		setLastResponseText(text);
 
 		// After successful interaction, check if free tier is now exhausted
@@ -461,7 +555,6 @@ export default function Home() {
 			if (data && !data.isSubscribed && data.freeTierExhausted) {
 				// Proactively trigger quota exhausted flow after the last free interaction
 				player.stop();
-				vad.pause();
 				setQuotaExhausted(true);
 				quotaExhaustedRef.current = true;
 				playNotificationSound();
@@ -543,7 +636,7 @@ export default function Home() {
 					</div>
 				) : null}
 			</div>
-			
+
 			{/* Footer links + Made by in bottom-right */}
 			<div className="fixed bottom-4 right-4 z-10 flex items-center gap-4">
 				<A href='/blog'>Blog</A>
@@ -578,7 +671,7 @@ export default function Home() {
 					{isPaused ? (
 						<>
 							<MicIcon />
-							Start Conversation
+							Share Screen & Start
 						</>
 					) : (
 						<>
@@ -607,17 +700,12 @@ export default function Home() {
 							<span className='inline-block size-2.5 rounded-full bg-neutral-400 dark:bg-neutral-600' />
 							<span className='text-sm text-neutral-500 dark:text-neutral-400 font-medium'>Paused</span>
 						</>
-					) : vad.userSpeaking ? (
+					) : isRecording ? (
 						<>
 							<span className='inline-block size-2.5 rounded-full bg-red-500 animate-pulse' />
 							<span className='text-sm text-red-600 dark:text-red-400 font-medium'>Recording...</span>
 						</>
-					) : (
-						<>
-							<span className='inline-block size-2.5 rounded-full bg-green-500' />
-							<span className='text-sm text-neutral-500 dark:text-neutral-400 font-medium'>Listening</span>
-						</>
-					)}
+					) : null}
 				</div>
 			)}
 
@@ -634,35 +722,31 @@ export default function Home() {
 
 				{messages.length === 0 && (
 					<div>
-						{vad.loading ? (
-							<p>Loading speech detection...</p>
-						) : vad.errored ? (
-							<p>Failed to load speech detection.</p>
-						) : isPaused ? (
+						{isPaused ? (
 							<p>Share your screen and start talking to your computer.</p>
 						) : (
-							<p>Start talking to chat.</p>
+							<p>Hold the V key and speak to chat.</p>
 						)}
 					</div>
 				)}
 			</div>
 
-			{/* Volume-reactive background orb */}
+			{/* Volume-reactive background orb — only visible when recording, thinking, or AI speaking */}
 			<div
 				className={clsx(
 					'absolute rounded-full bg-linear-to-b -z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-colors duration-300',
-					isPaused || vad.loading || vad.errored
-						? 'opacity-0'
-						: isPending
+					isPending
 						? 'from-amber-200 to-amber-400 dark:from-amber-600 dark:to-amber-800'
 						: player.isPlaying
 						? 'from-blue-200 to-blue-400 dark:from-blue-600 dark:to-blue-800'
-						: 'from-red-200 to-red-400 dark:from-red-600 dark:to-red-800'
+						: isRecording
+						? 'from-red-200 to-red-400 dark:from-red-600 dark:to-red-800'
+						: 'opacity-0'
 				)}
 				style={{
 					width: `${9 + volume * 12}rem`,
 					height: `${9 + volume * 12}rem`,
-					opacity: isPaused || vad.loading || vad.errored ? 0 : 0.15 + volume * 0.85,
+					opacity: (!isPending && !player.isPlaying && !isRecording) ? 0 : 0.15 + volume * 0.85,
 					filter: `blur(${2.5 + volume * 1.5}rem)`,
 					transition: 'width 0.1s ease-out, height 0.1s ease-out, opacity 0.1s ease-out, filter 0.1s ease-out',
 				}}
@@ -672,9 +756,11 @@ export default function Home() {
 			{pip.isOpen && pip.pipWindow && (
 				<PictureInPictureContent
 					status={isPending ? 'thinking' : player.isPlaying ? 'speaking' : 'idle'}
-					userSpeaking={vad.userSpeaking}
+					userSpeaking={isRecording}
 					isMuted={isMuted}
 					onToggleMute={toggleMute}
+					onStartRecording={startRecording}
+					onStopRecording={stopRecording}
 					quotaExhausted={quotaExhausted}
 					lastScreenshot={lastScreenshot}
 					lastResponseText={lastResponseText}
@@ -738,4 +824,3 @@ function PlayIcon() {
 		</svg>
 	);
 }
-
