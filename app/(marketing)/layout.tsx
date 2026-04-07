@@ -4,6 +4,7 @@ import { getAllPostSlugs } from "@/lib/content/posts";
 import { getAllCompetitorSlugs } from "@/lib/content/competitors";
 import { posts } from "@/lib/content/posts";
 import { competitors } from "@/lib/content/competitors";
+import { allTools } from "@/lib/content/tools";
 
 export default function MarketingLayout({
   children,
@@ -21,7 +22,7 @@ export default function MarketingLayout({
       {/* Site footer — links every page for users + Google */}
       <footer className="w-full border-t border-neutral-100 dark:border-neutral-900 mt-16 pt-10 pb-8">
         <div className="max-w-3xl mx-auto space-y-8">
-          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-600 mb-3">
                 Blog
@@ -60,6 +61,24 @@ export default function MarketingLayout({
 
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-600 mb-3">
+                Learn with AI
+              </p>
+              <ul className="space-y-2">
+                {allTools.map((t) => (
+                  <li key={t.slug}>
+                    <Link
+                      href={`/learn/${t.slug}`}
+                      className="text-sm text-neutral-500 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                    >
+                      {t.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-600 mb-3">
                 Product
               </p>
               <ul className="space-y-2">
@@ -77,6 +96,14 @@ export default function MarketingLayout({
                     className="text-sm text-neutral-500 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
                   >
                     Blog
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/learn"
+                    className="text-sm text-neutral-500 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                  >
+                    Learn with AI
                   </Link>
                 </li>
               </ul>

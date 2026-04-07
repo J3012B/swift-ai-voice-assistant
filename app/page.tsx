@@ -299,7 +299,7 @@ export default function Home() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	// Keyboard PTT: hold V key to speak (short taps still type normally)
+	// Keyboard PTT: hold V key to speak (short taps still type normally — secondary to PiP mic button)
 	useEffect(() => {
 		if (isPaused) return;
 
@@ -388,7 +388,7 @@ export default function Home() {
 		setIsPaused(false);
 		setQuotaExhausted(false);
 		quotaExhaustedRef.current = false;
-		toast.success('Conversation started — hold V to speak');
+		toast.success('Conversation started — hold the mic button to speak');
 		track('Start conversation');
 	}
 
@@ -725,7 +725,7 @@ export default function Home() {
 						{isPaused ? (
 							<p>Share your screen and start talking to your computer.</p>
 						) : (
-							<p>Hold the V key and speak to chat.</p>
+							<p>Hold the mic button in the floating window to speak.</p>
 						)}
 					</div>
 				)}
