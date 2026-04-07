@@ -69,6 +69,7 @@ export default function Home() {
 	const volumeAnimRef = useRef<number>(0);
 	const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 	const audioChunksRef = useRef<Blob[]>([]);
+	const recordingStartRef = useRef<number>(0);
 	const pttTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const pttActiveRef = useRef(false);
 	// Stable refs for animation loops — avoids stale closures and effect restarts
@@ -273,6 +274,7 @@ export default function Home() {
 				if (e.data.size > 0) audioChunksRef.current.push(e.data);
 			};
 			recorder.start();
+			recordingStartRef.current = Date.now();
 			mediaRecorderRef.current = recorder;
 			player.stop();
 			setIsRecording(true);
@@ -286,10 +288,13 @@ export default function Home() {
 		if (!recorder || recorder.state === 'inactive') return;
 
 		recorder.onstop = () => {
-			const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType });
+			const duration = Date.now() - recordingStartRef.current;
+			const mimeType = recorder.mimeType || 'audio/webm';
+			const blob = new Blob(audioChunksRef.current, { type: mimeType });
 			recorder.stream.getTracks().forEach(t => t.stop());
 			mediaRecorderRef.current = null;
-			if (blob.size > 0) {
+			// Require at least 500ms to avoid submitting malformed container-only files
+			if (blob.size > 0 && duration >= 500) {
 				startTransition(() => submit(blob));
 			}
 		};
