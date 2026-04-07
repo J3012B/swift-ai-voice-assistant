@@ -294,9 +294,6 @@ export const allTools: ToolPage[] = [
         <p>
           After Effects has a layer-based compositing model that seems straightforward until you need to combine layers in specific ways. <strong className="text-neutral-900 dark:text-white">Track mattes</strong> — alpha matte, luma matte, inverted alpha, inverted luma — are one of the most powerful features and one of the most confusing. The matte layer needs to be directly above the target layer, it needs to be the right type, and the layer order matters. When it does not work, your layer just disappears and you have no idea why.
         </p>
-        <div className="rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 my-2">
-          <img src="/screenshots/after-effects.png" alt="Adobe After Effects features page showing new motion graphics capabilities including variable fonts, native 3D shapes, and SVG import" className="w-full" />
-        </div>
         <p>
           <strong className="text-neutral-900 dark:text-white">Precomposing</strong> is another concept that trips people up. Sometimes you need to precomp to isolate effects. Sometimes precomping breaks your animation because transform properties now operate in a different coordinate space. Knowing when to precomp and when not to is experience that takes months to build — or one question to ask.
         </p>
@@ -380,9 +377,6 @@ export const allTools: ToolPage[] = [
         <p>
           Notion looks like a note-taking app but behaves like a database application wearing a note-taking costume. The fundamental confusion starts with the difference between a <strong className="text-neutral-900 dark:text-white">page</strong> and a <strong className="text-neutral-900 dark:text-white">database entry</strong>. Pages live freely in your workspace. Database entries live inside databases and have properties. When people try to use Notion like a note app, they create pages. When they realize they need structure, they convert to databases. Then they discover that a database page and a regular page behave differently and the frustration begins.
         </p>
-        <div className="rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 my-2">
-          <img src="/screenshots/notion.png" alt="Notion workspace showing the Ramp HQ database with a kanban board view displaying tasks organized into status columns" className="w-full" />
-        </div>
         <p>
           <strong className="text-neutral-900 dark:text-white">Relations</strong> link entries between databases — connect a task to a project, a project to a client. <strong className="text-neutral-900 dark:text-white">Rollups</strong> pull data from related entries — show the total hours logged across all tasks in a project. These two features are what make Notion powerful for project management, but the setup is unintuitive. You have to create the relation property first, then configure the rollup to reference a specific property through that relation. Most people give up before they get it working.
         </p>
