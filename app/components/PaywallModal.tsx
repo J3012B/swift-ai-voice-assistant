@@ -26,7 +26,6 @@ export default function PaywallModal({ isOpen, userEmail, onRefreshStatus, freeT
       const data = await response.json();
 
       if (response.ok && data.url) {
-        // Redirect to Stripe Checkout — user will return to our app via success_url
         window.location.href = data.url;
       } else {
         toast.error('Failed to start checkout. Please try again.');
@@ -44,10 +43,9 @@ export default function PaywallModal({ isOpen, userEmail, onRefreshStatus, freeT
     try {
       const response = await fetch('/api/subscription/sync', { method: 'POST' });
       const data = await response.json();
-      
+
       if (response.ok && data.success) {
         toast.success(data.message || 'Subscription synced successfully!');
-        // Now refresh the local state
         onRefreshStatus();
       } else {
         toast.error(data.message || 'No active subscription found. Please subscribe or try again in a moment.');
@@ -71,165 +69,105 @@ export default function PaywallModal({ isOpen, userEmail, onRefreshStatus, freeT
 
   return (
     <div className="fixed inset-0 z-9999 pointer-events-none">
-      {/* Backdrop layer */}
-      <div className="absolute inset-0 backdrop-blur-lg backdrop-brightness-90 backdrop-saturate-150" />
+      {/* Backdrop */}
+      <div className="absolute inset-0 backdrop-blur-xl backdrop-brightness-[0.85] backdrop-saturate-150" />
 
-      {/* Modal container */}
+      {/* Modal */}
       <div className="relative flex items-center justify-center min-h-screen pointer-events-auto">
-        <div className="rounded-2xl p-8 shadow-2xl w-full max-w-lg mx-4 border border-neutral-200/50 dark:border-neutral-700/50 bg-white dark:bg-neutral-900">
-          {/* Header */}
-          <div className="text-center mb-6">
-            {/* Free tier usage bar */}
-            <div className="mb-5">
-              <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2 mb-2">
-                <div
-                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all"
-                  style={{ width: `${Math.min(100, (freeTierUsed / freeTierLimit) * 100)}%` }}
-                />
-              </div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                {freeTierUsed} of {freeTierLimit} free interactions used
-              </p>
-            </div>
+        <div className="w-full max-w-md mx-4 rounded-2xl border border-neutral-200/60 dark:border-neutral-800/60 bg-white/95 dark:bg-neutral-950/95 p-10 animate-[rise_0.4s_ease-out]">
 
-            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
-              You&apos;ve used your free interactions
+          {/* Headline */}
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white mb-3">
+              Keep talking.
             </h1>
-            <p className="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-1">
-              $19/month to keep going
+            <p className="text-neutral-500 dark:text-neutral-400 text-[15px] leading-relaxed">
+              You&apos;ve used your {freeTierLimit} free conversations.<br />
+              Subscribe for unlimited access.
             </p>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
-              Liked what you experienced? Subscribe for unlimited access.
-            </p>
+          </div>
+
+          {/* Price */}
+          <div className="text-center mb-10">
+            <div className="flex items-baseline justify-center gap-1">
+              <span className="text-5xl font-bold tracking-tight text-neutral-900 dark:text-white">$19</span>
+              <span className="text-lg text-neutral-400 dark:text-neutral-500 font-medium">/month</span>
+            </div>
+            <p className="text-sm text-neutral-400 dark:text-neutral-600 mt-2">Cancel anytime</p>
           </div>
 
           {/* Benefits */}
-          <div className="mb-6 space-y-3">
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50">
-              <div className="shrink-0 w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-                <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+          <div className="mb-10 space-y-4">
+            {[
+              'Unlimited conversations',
+              'Screen sharing with AI vision',
+              'Shape the product with your feedback',
+            ].map((benefit) => (
+              <div key={benefit} className="flex items-center gap-3">
+                <span className="w-1 h-1 rounded-full bg-neutral-400 dark:bg-neutral-600 shrink-0" />
+                <span className="text-[15px] text-neutral-600 dark:text-neutral-300">{benefit}</span>
               </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-900 dark:text-white">Unlimited voice interactions</p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">Talk to your AI assistant as much as you want</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50">
-              <div className="shrink-0 w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-                <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-900 dark:text-white">Screen sharing + AI vision</p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">Share your screen and get real-time help</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50">
-              <div className="shrink-0 w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-                <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-900 dark:text-white">Shape the product</p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">Your feedback directly influences development</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Guarantee Badge */}
-          <div className="mb-6 p-4 rounded-xl bg-linear-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-700/50">
-            <div className="flex items-center gap-3">
-              <div className="shrink-0 w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
-                <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-green-800 dark:text-green-300">
-                  Risk-Free: 14-day money-back guarantee
-                </p>
-                <p className="text-xs text-green-700 dark:text-green-400">
-                  Not satisfied? Email{' '}
-                  <a href="mailto:josef@heliconsolutions.net?subject=Refund%20Request" className="underline font-medium">
-                    josef@heliconsolutions.net
-                  </a>
-                  {' '}within 14 days for a full refund, no questions asked.
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
 
           {/* CTA */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              className="w-full bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 transform hover:scale-[1.02] shadow-lg shadow-blue-500/25 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
-              onClick={handleSubscribe}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Redirecting to checkout...' : 'Subscribe Now — $19/month'}
-            </button>
+          <button
+            type="button"
+            className="w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold py-4 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            onClick={handleSubscribe}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Redirecting...' : 'Subscribe'}
+          </button>
 
-            {/* Already subscribed? Refresh status */}
+          {/* Trust */}
+          <p className="text-center text-sm text-neutral-400 dark:text-neutral-600 mt-4">
+            14-day money-back guarantee. No questions asked.
+          </p>
+
+          {/* Footer */}
+          <div className="mt-8 pt-6 border-t border-neutral-100 dark:border-neutral-800/50 text-center space-y-2">
             <button
               type="button"
-              className="w-full text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 py-2 transition-colors flex items-center justify-center gap-2"
+              className="text-xs text-neutral-400 dark:text-neutral-600 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors flex items-center justify-center gap-1.5 w-full"
               onClick={handleRefreshStatus}
               disabled={isRefreshing}
             >
               {isRefreshing ? (
                 <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Checking subscription status...
+                  Checking...
                 </>
               ) : (
-                'Already subscribed? Click to refresh'
+                'Already subscribed? Refresh'
               )}
             </button>
 
-            <div className="text-center">
-              <a
-                href="mailto:josef@heliconsolutions.net?subject=Refund%20Policy%20Question"
-                className="text-xs text-neutral-500 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 underline transition-colors"
-              >
-                Questions about the refund policy?
-              </a>
-            </div>
-          </div>
+            {userEmail && (
+              <div className="space-y-1">
+                <p className="text-xs text-neutral-300 dark:text-neutral-700">
+                  {userEmail}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="text-xs text-neutral-400 dark:text-neutral-600 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
 
-          {/* Small print */}
-          <p className="text-xs text-neutral-400 dark:text-neutral-600 text-center mt-5">
-            Cancel anytime. 14-day money-back guarantee — email{' '}
-            <a href="mailto:josef@heliconsolutions.net?subject=Refund%20Request" className="underline hover:text-neutral-500 dark:hover:text-neutral-400">
-              josef@heliconsolutions.net
+            <a
+              href="mailto:josef@heliconsolutions.net?subject=Refund%20Request"
+              className="block text-xs text-neutral-300 dark:text-neutral-700 hover:text-neutral-500 dark:hover:text-neutral-500 transition-colors"
+            >
+              Refund policy
             </a>
-            . Billed monthly.
-          </p>
-
-          {/* Sign out link */}
-          {userEmail && (
-            <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700/50 text-center">
-              <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-1">
-                Signed in as {userEmail}
-              </p>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="text-xs text-neutral-500 dark:text-neutral-500 hover:text-red-600 dark:hover:text-red-400 underline transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

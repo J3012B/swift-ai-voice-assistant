@@ -4,3 +4,14 @@
 	--color-neutral-200: #f0f0f0;
 	--color-neutral-300: #d1d1d1;
 }
+
+@keyframes rise {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
