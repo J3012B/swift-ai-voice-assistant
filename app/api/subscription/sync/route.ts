@@ -51,14 +51,18 @@ export async function POST(_request: Request) {
 			customer.id
 		);
 
-		// Get all active subscriptions for this customer
+		// Get this customer's subscriptions (active or trialing both count).
 		const subscriptions = await stripe.subscriptions.list({
 			customer: customer.id,
-			status: "active",
-			limit: 1,
+			status: "all",
+			limit: 10,
 		});
 
-		if (subscriptions.data.length === 0) {
+		const subscription = subscriptions.data.find(
+			(s) => s.status === "active" || s.status === "trialing"
+		);
+
+		if (!subscription) {
 			return new Response(
 				JSON.stringify({
 					success: false,
@@ -68,11 +72,12 @@ export async function POST(_request: Request) {
 			);
 		}
 
-		const subscription = subscriptions.data[0];
-
 		// Activate the subscription in our database
 		const startDate = new Date(subscription.start_date * 1000);
-		const endDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+		const periodEnd = (subscription as any).current_period_end as number | undefined;
+		const endDate = periodEnd
+			? new Date(periodEnd * 1000)
+			: new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
 
 		await subscriptionService.activateSubscription(
 			customer.id,

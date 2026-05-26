@@ -4,6 +4,7 @@ import { interactionService } from "../../lib/interaction-service";
 import { db } from "../../lib/db";
 import { users } from "../../../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { FREE_DAILY_LIMIT } from "../../lib/constants";
 
 export async function GET(_request: Request) {
 	// Get user session
@@ -16,7 +17,7 @@ export async function GET(_request: Request) {
 	}
 	
 	try {
-		const DAILY_LIMIT = 10;
+		const DAILY_LIMIT = FREE_DAILY_LIMIT;
 		const { count } = await interactionService.checkDailyLimit(session.user.id, DAILY_LIMIT);
 		// Determine if this user has limits disabled
 		const userSettings = await db

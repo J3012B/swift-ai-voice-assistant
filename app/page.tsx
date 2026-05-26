@@ -32,6 +32,10 @@ type Message = {
 
 interface SubscriptionData {
 	isSubscribed: boolean;
+	hasUnlimitedAccess: boolean;
+	inTrial: boolean;
+	trialEndsAt: string | null;
+	trialAvailable: boolean;
 	status: string;
 	subscriptionEndDate: string | null;
 	interactionCount: number;
@@ -111,8 +115,9 @@ export default function Home() {
 			if (response.ok) {
 				const data: SubscriptionData = await response.json();
 				setSubscriptionData(data);
-				// Only show paywall if not subscribed AND free tier is exhausted
-				setShowPaywall(!data.isSubscribed && data.freeTierExhausted);
+				// Show paywall only when the user has no unlimited access (paid/trial)
+				// AND has used today's free allowance.
+				setShowPaywall(!data.hasUnlimitedAccess && data.freeTierExhausted);
 
 				// Show feedback prompt if conditions are met and not already dismissed
 				if (data.shouldShowFeedback && !feedbackDismissed) {
@@ -353,13 +358,32 @@ export default function Home() {
 	}, [isPaused, startRecording, stopRecording]);
 
 	async function startConversation() {
-		// Gate on authentication
-		if (!session) {
-			setShowAuth(true);
+		// Mic-only start: no signup gate and no forced screen share — those are the
+		// two biggest activation killers. Anonymous visitors get a free turn; the
+		// server prompts signup afterwards. Screen sharing is opt-in (see below).
+		try {
+			// Open PiP mini player (requires user gesture — we're still in the click handler)
+			if (pip.isSupported) {
+				await pip.open();
+			}
+
+			// Start mic analyser for volume visualization (prompts mic permission)
+			await mic.start();
+		} catch {
+			toast.error('Microphone access is needed to talk. Please allow it and try again.');
 			return;
 		}
 
-		// Step 1: Request screen sharing
+		// Start listening
+		setIsPaused(false);
+		setQuotaExhausted(false);
+		quotaExhaustedRef.current = false;
+		toast.success('Listening — hold the mic button to speak');
+		track('Start conversation');
+	}
+
+	// Optional: let the user share their screen for visual help, mid-conversation.
+	async function enableScreenShare() {
 		try {
 			const mediaStream = await navigator.mediaDevices.getDisplayMedia({
 				video: true,
@@ -369,32 +393,27 @@ export default function Home() {
 			setIsSharing(true);
 			setScreenStream(mediaStream);
 
-			// Handle when user stops sharing via browser UI
+			// If the user stops sharing via the browser UI, keep the voice conversation going.
 			mediaStream.getTracks().forEach(t => {
 				t.onended = () => {
-					stopConversation();
+					setIsSharing(false);
+					setScreenStream(null);
 				};
 			});
+
+			track('Enable screen share');
+			toast.success('Screen sharing on — I can see your screen now');
 		} catch {
-			// User cancelled screen share picker — don't start conversation
-			toast.info('Screen sharing is required to start a conversation.');
-			return;
+			// User cancelled the picker — no-op, conversation continues voice-only.
 		}
+	}
 
-		// Step 2: Open PiP mini player (requires user gesture — we're still in the click handler)
-		if (pip.isSupported) {
-			await pip.open();
+	function disableScreenShare() {
+		if (screenStream) {
+			screenStream.getTracks().forEach(t => t.stop());
 		}
-
-		// Step 3: Start mic analyser for volume visualization
-		await mic.start();
-
-		// Step 4: Start listening
-		setIsPaused(false);
-		setQuotaExhausted(false);
-		quotaExhaustedRef.current = false;
-		toast.success('Conversation started — hold the mic button to speak');
-		track('Start conversation');
+		setIsSharing(false);
+		setScreenStream(null);
 	}
 
 	function toggleMute() {
@@ -510,7 +529,17 @@ export default function Home() {
 		// Handle free tier exhausted / subscription required
 		if (response.status === 403) {
 			const data = await response.json().catch(() => null);
-			if (data?.error === 'subscription_required') {
+
+			// Anonymous visitor used their free turn — prompt signup (not the paywall).
+			if (data?.error === 'signup_required') {
+				player.stop();
+				setShowAuth(true);
+				toast.info('Sign up free to keep talking — it only takes a second.');
+				return prevMessages;
+			}
+
+			// Daily free limit reached — the paywall decides trial vs subscribe.
+			if (data?.error === 'limit_reached' || data?.error === 'subscription_required') {
 				// Stop any playing audio immediately
 				player.stop();
 				// Show quota exhausted in PiP and main UI
@@ -518,7 +547,7 @@ export default function Home() {
 				quotaExhaustedRef.current = true;
 				setShowPaywall(true);
 				fetchSubscription();
-				toast.error('You\'ve used all your free interactions. Subscribe to continue.');
+				toast.error(data?.message || 'You\'ve used your free conversations for today.');
 
 				// Play gentle chime, then the voice limit-reached message
 				playNotificationSound();
@@ -557,7 +586,7 @@ export default function Home() {
 
 		// After successful interaction, check if free tier is now exhausted
 		fetchSubscription().then((data) => {
-			if (data && !data.isSubscribed && data.freeTierExhausted) {
+			if (data && !data.hasUnlimitedAccess && data.freeTierExhausted) {
 				// Proactively trigger quota exhausted flow after the last free interaction
 				player.stop();
 				setQuotaExhausted(true);
@@ -607,6 +636,8 @@ export default function Home() {
 				onRefreshStatus={fetchSubscription}
 				freeTierUsed={subscriptionData?.freeTierUsed ?? 0}
 				freeTierLimit={subscriptionData?.freeTierLimit ?? 5}
+				trialAvailable={subscriptionData?.trialAvailable ?? false}
+				onTrialStarted={() => { setShowPaywall(false); setQuotaExhausted(false); quotaExhaustedRef.current = false; }}
 			/>
 
 			{/* Feedback Modal — shown after 3-5 interactions for subscribers */}
@@ -635,9 +666,13 @@ export default function Home() {
 					<div className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs px-3 py-1.5 rounded-full font-medium">
 						Subscribed
 					</div>
+				) : subscriptionData?.inTrial ? (
+					<div className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs px-3 py-1.5 rounded-full font-medium">
+						Free trial active
+					</div>
 				) : subscriptionData && !subscriptionData.freeTierExhausted ? (
 					<div className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs px-3 py-1.5 rounded-full font-medium">
-						{subscriptionData.freeTierRemaining} of {subscriptionData.freeTierLimit} free interactions left
+						{subscriptionData.freeTierRemaining} of {subscriptionData.freeTierLimit} free today
 					</div>
 				) : null}
 			</div>
@@ -663,6 +698,17 @@ export default function Home() {
 					</button>
 				)}
 
+				{/* Optional screen sharing — opt-in, mid-conversation (no longer required to start) */}
+				{!isPaused && (
+					<button
+						type='button'
+						onClick={isSharing ? disableScreenShare : enableScreenShare}
+						className='flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-600 hover:text-neutral-900 dark:hover:text-white transition-all'
+					>
+						{isSharing ? 'Stop sharing' : 'Share screen'}
+					</button>
+				)}
+
 				<button
 					type='button'
 					onClick={isPaused ? startConversation : stopConversation}
@@ -676,7 +722,7 @@ export default function Home() {
 					{isPaused ? (
 						<>
 							<MicIcon />
-							Share Screen & Start
+							Start talking
 						</>
 					) : (
 						<>
@@ -728,7 +774,7 @@ export default function Home() {
 				{messages.length === 0 && (
 					<div>
 						{isPaused ? (
-							<p>Share your screen and start talking to your computer.</p>
+							<p>Talk to your computer. Share your screen anytime for visual help.</p>
 						) : (
 							<p>Hold the mic button in the floating window to speak.</p>
 						)}

@@ -5,7 +5,7 @@ import { interactionService } from "../../lib/interaction-service";
 import { db } from "../../lib/db";
 import { feedback, users } from "../../../drizzle/schema";
 import { eq, sql } from "drizzle-orm";
-import { FREE_TIER_LIMIT } from "../../lib/constants";
+import { FREE_DAILY_LIMIT } from "../../lib/constants";
 
 export async function GET(_request: Request) {
 	// Get user session
@@ -18,9 +18,16 @@ export async function GET(_request: Request) {
 	}
 
 	try {
-		const subscriptionInfo = await subscriptionService.getSubscriptionInfo(session.user.id);
-		
-		// Get total interaction count for this user (for feedback prompt logic)
+		const [subscriptionInfo, access] = await Promise.all([
+			subscriptionService.getSubscriptionInfo(session.user.id),
+			subscriptionService.getAccessInfo(session.user.id),
+		]);
+
+		// Today's usage (UTC day) for the free tier.
+		const { count: dailyUsed, exceeded: dailyExceeded } =
+			await interactionService.checkDailyLimit(session.user.id, FREE_DAILY_LIMIT);
+
+		// Lifetime interaction count drives the feedback/onboarding prompts.
 		const interactionCount = await interactionService.getUserInteractionCount(session.user.id);
 
 		// Check if user has already submitted feedback
@@ -38,24 +45,32 @@ export async function GET(_request: Request) {
 			.limit(1);
 		const hasOnboarding = !!userRow[0]?.useCase;
 
-		const freeTierUsed = interactionCount;
-		const freeTierRemaining = Math.max(0, FREE_TIER_LIMIT - freeTierUsed);
-		const freeTierExhausted = freeTierUsed >= FREE_TIER_LIMIT;
+		// Free tier is "exhausted" only if the user has no unlimited access (paid/trial)
+		// AND has used today's allowance.
+		const freeTierExhausted = !access.hasUnlimitedAccess && dailyExceeded;
+		const freeTierRemaining = access.hasUnlimitedAccess
+			? Number.MAX_SAFE_INTEGER
+			: Math.max(0, FREE_DAILY_LIMIT - dailyUsed);
 
 		return new Response(JSON.stringify({
-			isSubscribed: subscriptionInfo.isSubscribed,
+			// Access
+			isSubscribed: access.isSubscribed,
+			hasUnlimitedAccess: access.hasUnlimitedAccess,
+			inTrial: access.inTrial,
+			trialEndsAt: access.trialEndsAt,
+			trialAvailable: access.trialAvailable,
 			status: subscriptionInfo.status,
 			subscriptionStartDate: subscriptionInfo.subscriptionStartDate,
 			subscriptionEndDate: subscriptionInfo.subscriptionEndDate,
 			interactionCount,
 			hasFeedback,
-			// Free tier info
-			freeTierLimit: FREE_TIER_LIMIT,
-			freeTierUsed,
+			// Free tier (now a daily allowance)
+			freeTierLimit: FREE_DAILY_LIMIT,
+			freeTierUsed: dailyUsed,
 			freeTierRemaining,
 			freeTierExhausted,
-			// Show feedback prompt after 3-5 interactions if no feedback yet
-			shouldShowFeedback: subscriptionInfo.isSubscribed && interactionCount >= 3 && interactionCount <= 10 && !hasFeedback,
+			// Show feedback prompt after 3-10 interactions if subscribed and no feedback yet
+			shouldShowFeedback: access.isSubscribed && interactionCount >= 3 && interactionCount <= 10 && !hasFeedback,
 			// Show onboarding question after 1st interaction if not yet answered
 			shouldShowOnboarding: interactionCount >= 1 && !hasOnboarding,
 		}), {

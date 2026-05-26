@@ -8,8 +8,8 @@ import { openAIService } from "../lib/openai-service";
 import { telegramErrorNotifier } from "../lib/telegram-error-notifier";
 import { interactionService } from "../lib/interaction-service";
 import { subscriptionService } from "../lib/subscription-service";
-import { sendQuotaExceededEmail } from "../lib/postmark";
-import { FREE_TIER_LIMIT } from "../lib/constants";
+import { FREE_DAILY_LIMIT } from "../lib/constants";
+import { ANON_FREE_TURNS, anonTurnsUsed, getClientIp, hashIp, recordAnonTurn } from "../lib/anon-service";
 
 const schema = zfd.formData({
 	input: z.union([zfd.text(), zfd.file()]),
@@ -32,39 +32,56 @@ export async function POST(request: Request) {
 	const supabase = createRouteHandlerClient({ cookies: () => cookieStore as any });
 	const { data: { session } } = await supabase.auth.getSession();
 	
-	// Check subscription or free tier for authenticated users
+	// Anonymous visitors get a small "taste" allowance before the signup wall.
+	// Set when there's no session so we can record the consumed turn later.
+	let anonIpHash: string | null = null;
+
+	// Check subscription / trial / daily free tier for authenticated users
 	if (session?.user?.id) {
-		const isSubscribed = await subscriptionService.isSubscribed(session.user.id);
+		const access = await subscriptionService.getAccessInfo(session.user.id);
 
-		if (!isSubscribed) {
-			// Check if user still has free tier interactions remaining
-			const totalInteractions = await interactionService.getUserInteractionCount(session.user.id);
+		if (!access.hasUnlimitedAccess) {
+			// Free tier: a daily allowance that resets each UTC day.
+			const { exceeded, count } = await interactionService.checkDailyLimit(session.user.id, FREE_DAILY_LIMIT);
 
-			if (totalInteractions >= FREE_TIER_LIMIT) {
-				// Free tier exhausted — track and block
-				await subscriptionService.trackEvent(session.user.id, "paywall_blocked");
-
-				// Send quota exceeded email only on the exact threshold hit (not on repeat blocks)
-				if (totalInteractions === FREE_TIER_LIMIT && session.user.email) {
-					sendQuotaExceededEmail(session.user.email, FREE_TIER_LIMIT)
-						.catch(err => console.error('Failed to send quota exceeded email:', err));
-				}
+			if (exceeded) {
+				// Daily limit reached — track and block. The client decides whether to
+				// offer the no-card trial (if available) or the subscribe paywall.
+				await subscriptionService.trackEvent(session.user.id, "paywall_blocked", {
+					trialAvailable: access.trialAvailable,
+				});
 
 				return new Response(
 					JSON.stringify({
-						error: "subscription_required",
-						message: "You've used all your free interactions. Subscribe to keep using TalkToYourComputer.",
-						freeUsed: totalInteractions,
-						freeLimit: FREE_TIER_LIMIT,
+						error: "limit_reached",
+						message: access.trialAvailable
+							? "You've used your free conversations for today. Start your free 7-day trial to keep going."
+							: "You've used your free conversations for today. Subscribe for unlimited access.",
+						trialAvailable: access.trialAvailable,
+						dailyUsed: count,
+						dailyLimit: FREE_DAILY_LIMIT,
 					}),
-					{ status: 403, headers: { "Content-Type": "application/json", "X-Subscription-Required": "true" } }
+					{ status: 403, headers: { "Content-Type": "application/json", "X-Limit-Reached": "true" } }
 				);
 			}
-			// else: still within free tier, allow the request through
+			// else: still within today's free allowance, allow the request through
 		}
 	} else {
-		// No session — user must be authenticated
-		return new Response("Unauthorized", { status: 401 });
+		// Anonymous: allow ANON_FREE_TURNS free turn(s) per IP per window, then require signup.
+		const headersList = await headers();
+		anonIpHash = hashIp(getClientIp(headersList));
+		const used = await anonTurnsUsed(anonIpHash);
+
+		if (used >= ANON_FREE_TURNS) {
+			return new Response(
+				JSON.stringify({
+					error: "signup_required",
+					message: "Sign up free to keep talking to your computer.",
+				}),
+				{ status: 403, headers: { "Content-Type": "application/json", "X-Signup-Required": "true" } }
+			);
+		}
+		// else: free turn available — consumed below once we have a valid transcript.
 	}
 	
 	console.time("transcribe " + requestId);
@@ -80,6 +97,12 @@ export async function POST(request: Request) {
 
 	const transcript = await getTranscript(data.input, requestId);
 	if (!transcript) return new Response("Invalid audio", { status: 400 });
+
+	// Consume the anonymous free turn only once we have a valid transcript,
+	// so empty / too-short audio doesn't burn the visitor's single free try.
+	if (anonIpHash) {
+		await recordAnonTurn(anonIpHash);
+	}
 
 	console.timeEnd(
 		"transcribe " + request.headers.get("x-vercel-id") || "local"

@@ -19,12 +19,33 @@ export async function POST(request: Request) {
 	try {
 		const { origin } = new URL(request.url);
 
+		// Plan selection: "annual" or "monthly" (default).
+		let plan: "monthly" | "annual" = "monthly";
+		try {
+			const body = await request.json();
+			if (body?.plan === "annual") plan = "annual";
+		} catch {
+			// No/invalid body — default to monthly.
+		}
+
+		const monthlyPrice = process.env.STRIPE_PRICE_ID_MONTHLY || process.env.STRIPE_PRICE_ID;
+		const annualPrice = process.env.STRIPE_PRICE_ID_ANNUAL;
+		const priceId = plan === "annual" ? annualPrice : monthlyPrice;
+
+		if (!priceId) {
+			console.error(`Missing Stripe price ID for plan "${plan}"`);
+			return new Response(
+				JSON.stringify({ error: `The ${plan} plan is not available right now.` }),
+				{ status: 400, headers: { "Content-Type": "application/json" } }
+			);
+		}
+
 		const checkoutSession = await stripe.checkout.sessions.create({
 			mode: "subscription",
 			customer_email: session.user.email,
 			line_items: [
 				{
-					price: process.env.STRIPE_PRICE_ID!,
+					price: priceId,
 					quantity: 1,
 				},
 			],
@@ -32,6 +53,7 @@ export async function POST(request: Request) {
 			cancel_url: `${origin}?cancelled=true`,
 			metadata: {
 				userId: session.user.id,
+				plan,
 			},
 		});
 

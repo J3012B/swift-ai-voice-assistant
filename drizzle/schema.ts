@@ -23,6 +23,10 @@ export const users = pgTable("users", {
 	// Onboarding: what they plan to use the product for
 	useCase: text("use_case"),
 
+	// No-card free trial: when set and in the future, the user has unlimited access.
+	// NULL = never started (trial available); past = trial used/expired.
+	trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+
 	// Stripe subscription fields
 	stripeCustomerId: text("stripe_customer_id"),
 	stripeSubscriptionId: text("stripe_subscription_id"),
