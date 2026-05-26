@@ -55,14 +55,25 @@ export async function POST(request: Request) {
 					);
 
 					const startDate = new Date(subscription.start_date * 1000);
-					// Estimate period end as 30 days from start for monthly
-					const endDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+					// Use the real current period end (handles monthly vs annual correctly).
+					const periodEnd = (subscription as any).current_period_end as number | undefined;
+					const endDate = periodEnd
+						? new Date(periodEnd * 1000)
+						: new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+					// Real plan/amount for accurate revenue analytics.
+					const price = subscription.items.data[0]?.price;
+					const interval = price?.recurring?.interval ?? "month";
 					await subscriptionService.activateSubscription(
 						session.customer as string,
 						subscription.id,
 						startDate,
-						endDate
+						endDate,
+						{
+							plan: session.metadata?.plan ?? (interval === "year" ? "annual" : "monthly"),
+							amount: price?.unit_amount ?? undefined,
+							interval,
+						}
 					);
 
 					console.log(`Subscription activated for user ${userId || customerEmail}`);
@@ -74,13 +85,16 @@ export async function POST(request: Request) {
 				const subscription = event.data.object as Stripe.Subscription;
 				const customerId = subscription.customer as string;
 
-				if (subscription.status === "active") {
+				if (subscription.status === "active" || subscription.status === "trialing") {
 					const startDate = new Date(subscription.start_date * 1000);
-					const endDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+					const periodEnd = (subscription as any).current_period_end as number | undefined;
+					const endDate = periodEnd
+						? new Date(periodEnd * 1000)
+						: new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
 
 					await subscriptionService.updateSubscription(customerId, {
 						stripeSubscriptionId: subscription.id,
-						subscriptionStatus: "active",
+						subscriptionStatus: subscription.status === "trialing" ? "trialing" : "active",
 						subscriptionStartDate: startDate,
 						subscriptionEndDate: endDate,
 					});
