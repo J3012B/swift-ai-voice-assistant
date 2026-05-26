@@ -61,11 +61,19 @@ export async function POST(request: Request) {
 						? new Date(periodEnd * 1000)
 						: new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+					// Real plan/amount for accurate revenue analytics.
+					const price = subscription.items.data[0]?.price;
+					const interval = price?.recurring?.interval ?? "month";
 					await subscriptionService.activateSubscription(
 						session.customer as string,
 						subscription.id,
 						startDate,
-						endDate
+						endDate,
+						{
+							plan: session.metadata?.plan ?? (interval === "year" ? "annual" : "monthly"),
+							amount: price?.unit_amount ?? undefined,
+							interval,
+						}
 					);
 
 					console.log(`Subscription activated for user ${userId || customerEmail}`);

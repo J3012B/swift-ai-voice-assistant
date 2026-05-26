@@ -193,12 +193,20 @@ export default function Home() {
 		return () => window.removeEventListener('focus', handleFocus);
 	}, [session?.user?.id, fetchSubscription]);
 
-	// Track paywall view for analytics
+	// Track paywall view for analytics (Vercel + durable funnel event in analytics_events)
 	useEffect(() => {
 		if (showPaywall && session?.user?.id) {
 			track('Paywall viewed');
+			fetch('/api/track', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					event: 'paywall_viewed',
+					metadata: { trialAvailable: subscriptionData?.trialAvailable ?? null },
+				}),
+			}).catch(() => {});
 		}
-	}, [showPaywall, session?.user?.id]);
+	}, [showPaywall, session?.user?.id, subscriptionData?.trialAvailable]);
 
 	// Volume tracking loop — reads mic or AI audio volume at ~60fps
 	// Uses refs to avoid effect restarts from changing object references

@@ -73,6 +73,8 @@ export async function POST(request: Request) {
 		const used = await anonTurnsUsed(anonIpHash);
 
 		if (used >= ANON_FREE_TURNS) {
+			// Funnel: anonymous visitor used their free turn and is being asked to sign up.
+			await subscriptionService.trackEvent(null, "signup_wall_shown", { ipHash: anonIpHash });
 			return new Response(
 				JSON.stringify({
 					error: "signup_required",

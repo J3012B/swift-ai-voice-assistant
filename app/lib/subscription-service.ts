@@ -243,7 +243,8 @@ class SubscriptionService {
 		stripeCustomerId: string,
 		stripeSubscriptionId: string,
 		periodStart: Date,
-		periodEnd: Date
+		periodEnd: Date,
+		eventMeta?: { plan?: string; amount?: number; interval?: string }
 	): Promise<void> {
 		try {
 			await db
@@ -265,7 +266,10 @@ class SubscriptionService {
 			if (user[0]) {
 				await this.trackEvent(user[0].id, "subscription_created", {
 					stripeSubscriptionId,
-					amount: 1900, // $19.00 in cents
+					// Real amount/interval when known (handles annual vs monthly); defaults to $19/mo.
+					amount: eventMeta?.amount ?? 1900,
+					interval: eventMeta?.interval ?? "month",
+					plan: eventMeta?.plan ?? "monthly",
 				});
 			}
 		} catch (error) {

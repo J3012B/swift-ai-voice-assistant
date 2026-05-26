@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+import { subscriptionService } from "../../lib/subscription-service";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -56,6 +57,9 @@ export async function POST(request: Request) {
 				plan,
 			},
 		});
+
+		// Funnel: the user reached Stripe checkout (the step before "subscribed").
+		await subscriptionService.trackEvent(session.user.id, "checkout_started", { plan });
 
 		return new Response(
 			JSON.stringify({ url: checkoutSession.url }),
